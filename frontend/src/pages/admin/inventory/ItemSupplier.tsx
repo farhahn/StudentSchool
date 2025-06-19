@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Box, Typography, TextField, Button,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  IconButton, InputAdornment, Snackbar, Alert
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
+} from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  getAllSupplier,//Spelling Mistake
+  createSupplier,
+  updateSupplier,
+  deleteSupplier,
+  clearSupplierError
+} from '../../../redux/supplierRelated/supplierHandle.js';
 
-const ItemSupplier = () => {
-  const [suppliers, setSuppliers] = useState([
-    { id: 1, name: 'Camlin Stationers', phone: '84543436583', email: 'camlin@gmail.com', address: '22 Cristal Way, CA', contactPersonName: 'Bruce Stark', contactPersonPhone: '847487932', contactPersonEmail: 'bruce@gmail.com', description: '' },
-    { id: 2, name: 'Jhonson Uniform Dress', phone: '8796787856', email: 'Jhonson@gmail.com', address: '22 Cristal Way, CA', contactPersonName: 'David', contactPersonPhone: '8766785678', contactPersonEmail: 'david@gmail.com', description: '' },
-    { id: 3, name: 'David Furniture', phone: '57867678', email: 'david@gmail.com', address: '22 Cristal Way, CA', contactPersonName: 'Peter', contactPersonPhone: '685676578', contactPersonEmail: 'per@gmail.com', description: '' },
-    { id: 4, name: 'Jhon smith Supplier', phone: '890809978', email: 'jhon@gmail.com', address: 'Delhi Road,DR', contactPersonName: 'David', contactPersonPhone: '8987978678', contactPersonEmail: 'david@gmail.com', description: '' },
-  ]);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [newSupplier, setNewSupplier] = useState({
-    id: null,
+const ItemSupplier: React.FC = () => {
+  const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
@@ -18,474 +27,397 @@ const ItemSupplier = () => {
     contactPersonName: '',
     contactPersonPhone: '',
     contactPersonEmail: '',
-    description: '',
+    description: ''
   });
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [snack, setSnack] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewSupplier({ ...newSupplier, [name]: value });
+  const dispatch = useDispatch();
+  const { currentUser } = useSelector((state) => state.user);
+  const adminID = currentUser?._id;//(DOT. Missing)
+  const { suppliersList, loading, error } = useSelector((state) => state.supplier);
+
+  useEffect(() => {
+    if (adminID) {
+      dispatch(getAllSupplier(adminID));
+    }
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    if (error) {
+      setSnack({ open: true, message: error, severity: 'error' });
+      dispatch(clearSupplierError());
+    }
+  }, [error, dispatch]);
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      contactPersonName: '',
+      contactPersonPhone: '',
+      contactPersonEmail: '',
+      description: ''
+    });
+    setEditId(null);
   };
 
-  const handleSave = () => {
-    if (newSupplier.name) {
-      if (isEditing) {
-        setSuppliers(suppliers.map(supplier =>
-          supplier.id === newSupplier.id ? { ...newSupplier } : supplier
-        ));
-        setIsEditing(false);
-      } else {
-        setSuppliers([...suppliers, { ...newSupplier, id: Date.now() }]);
-      }
-      setNewSupplier({
-        id: null,
-        name: '',
-        phone: '',
-        email: '',
-        address: '',
-        contactPersonName: '',
-        contactPersonPhone: '',
-        contactPersonEmail: '',
-        description: '',
-      });
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setSnack({ open: true, message: 'Supplier Name and Phone are required!', severity: 'warning' });
+      return;
+    }
+
+    const payload = {
+      name: formData.name.trim(),
+      phone: formData.phone.trim(),
+      email: formData.email?.trim() || '',
+      address: formData.address?.trim() || '',
+      contactPersonName: formData.contactPersonName?.trim() || '',
+      contactPersonPhone: formData.contactPersonPhone?.trim() || '',
+      contactPersonEmail: formData.contactPersonEmail?.trim() || '',
+      description: formData.description?.trim() || '',
+      adminID: adminID || ''
+    };
+
+    const exists = suppliersList?.some(
+      (supplier) =>
+       /*  supplier.name.toLowerCase() === formData.name.trim().toLowerCase() &&
+        supplier.phone.trim() === formData.phone.trim() &&
+        supplier._id !== editId */
+        (supplier.name.toLowerCase() === formData.name.trim().toLowerCase() ||
+        supplier.phone.trim() === formData.phone.trim()) &&
+        supplier._id !== editId
+    );
+
+    if (exists) {
+      setSnack({ open: true, message: 'Supplier with same name and phone already exists!', severity: 'warning' });
+      return;
+    }
+
+    if (editId) {
+      dispatch(updateSupplier(editId, payload))
+        .then(() => {
+          resetForm();
+          dispatch(getAllSupplier(adminID));// must be difinde admin
+
+          setSnack({ open: true, message: 'Supplier updated successfully', severity: 'success' });
+        })
+        .catch((err) => console.error(err));
     } else {
-      alert('Please fill the required field (*).');
+      dispatch(createSupplier(payload))
+        .then(() => {
+          resetForm();
+          dispatch(getAllSupplier(adminID));
+          setSnack({ open: true, message: 'Supplier created successfully', severity: 'success' });
+        })
+        .catch((err) => console.error(err));
     }
   };
 
-  const handleEdit = (id) => {
-    const supplierToEdit = suppliers.find(supplier => supplier.id === id);
-    if (supplierToEdit) {
-      setNewSupplier({ ...supplierToEdit });
-      setIsEditing(true);
-    }
+  const handleEdit = (supplier) => {
+    setEditId(supplier._id);
+    setFormData({
+      name: supplier.name,
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      address: supplier.address || '',
+      contactPersonName: supplier.contactPersonName || '',
+      contactPersonPhone: supplier.contactPersonPhone || '',
+      contactPersonEmail: supplier.contactPersonEmail || '',
+      description: supplier.description || ''
+    });
   };
 
   const handleDelete = (id) => {
-    if (window.confirm(`Are you sure you want to delete supplier with ID: ${id}?`)) {
-      setSuppliers(suppliers.filter(supplier => supplier.id !== id));
-    }
+    dispatch(deleteSupplier(id, adminID))
+      .then(() => {
+        dispatch(getAllSupplier(adminID));
+        setSnack({ open: true, message: 'Supplier deleted!', severity: 'info' });
+      });
   };
 
-  return (
-    <div className="supplier-container">
-      <div className="supplier-header">
-        <div className="add-form">
-          <h2 className="form-title">Add Item Supplier</h2>
-          <div className="form-group">
-            <label className="form-label">Name *</label>
-            <input
-              type="text"
-              name="name"
-              value={newSupplier.name}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter supplier name"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Phone</label>
-            <input
-              type="text"
-              name="phone"
-              value={newSupplier.phone}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter phone number"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={newSupplier.email}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter email"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Address</label>
-            <input
-              type="text"
-              name="address"
-              value={newSupplier.address}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter address"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact Person Name</label>
-            <input
-              type="text"
-              name="contactPersonName"
-              value={newSupplier.contactPersonName}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter contact person name"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact Person Phone</label>
-            <input
-              type="text"
-              name="contactPersonPhone"
-              value={newSupplier.contactPersonPhone}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter contact person phone"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact Person Email</label>
-            <input
-              type="email"
-              name="contactPersonEmail"
-              value={newSupplier.contactPersonEmail}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter contact person email"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Description</label>
-            <input
-              type="text"
-              name="description"
-              value={newSupplier.description}
-              onChange={handleInputChange}
-              className="form-input"
-              placeholder="Enter description"
-            />
-          </div>
-          <button className="save-btn" onClick={handleSave}>
-            {isEditing ? 'Update' : 'Save'}
+  const handleCloseSnack = () => {
+    setSnack({ ...snack, open: false });
+  };
+
+/*   const filteredSuppliers = Array.isArray(suppliersList)
+    ? suppliersList.filter(supplier =>
+        supplier.name &&
+        supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+ */
+
+    const filteredSuppliers = Array.isArray(suppliersList)
+  ? suppliersList.filter(supplier =>
+      (supplier.name && supplier.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (supplier.phone && supplier.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (supplier.email && supplier.email.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+  : [];
+
+if (!currentUser) {
+  return <Typography>Please log in to view suppliers.</Typography>;
+}
+
+
+  if (!currentUser) {
+    return <Typography>Please log in to view suppliers.</Typography>;
+  }
+return (
+  <div className="category-container">
+    <div className="category-header">
+      <div className="add-form">
+        <h2 className="form-title">{editId ? 'Edit Supplier' : 'Add Supplier'}</h2>
+        <form onSubmit={handleSubmit}>
+          {['name', 'phone', 'email', 'address', 'contactPersonName', 'contactPersonPhone', 'contactPersonEmail', 'description']
+            .map((field, index) => (
+              <div className="form-group" key={index}>
+                <label className="form-label">
+                  {field.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}
+                </label>
+                <input
+                  type="text"
+                  name={field}
+                  value={formData[field]}
+                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                  className="form-input"
+                  placeholder={`Enter ${field}`}
+                />
+              </div>
+            ))}
+          <button className="save-btn" type="submit" disabled={loading}>
+            {editId ? 'Update' : 'Save'}
           </button>
-        </div>
-        <div className="supplier-list">
-          <h2 className="list-title">Item Supplier List</h2>
-          <div className="search-bar">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-            <div className="icons">
-              <span role="img" aria-label="export" className="icon">📤</span>
-              <span role="img" aria-label="print" className="icon">🖨️</span>
-              <span role="img" aria-label="close" className="icon">❌</span>
-            </div>
-          </div>
-          <table className="supplier-table">
-            <thead>
-              <tr>
-                {['Item Supplier', 'Contact Person', 'Address', 'Action'].map(header => (
-                  <th key={header} className="table-header">{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {suppliers
-                .filter(supplier =>
-                  supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  supplier.contactPersonName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  supplier.address.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map(supplier => (
-                  <tr key={supplier.id} className="table-row">
-                    <td className="table-cell">{supplier.name}</td>
-                    <td className="table-cell">
-                      <span role="img" aria-label="person">👤</span> {supplier.contactPersonName}
-                    </td>
-                    <td className="table-cell">
-                      <span role="img" aria-label="address">📍</span> {supplier.address}
-                    </td>
-                    <td className="table-cell action-cell">
-                      <button className="action-btn edit-btn" onClick={() => handleEdit(supplier.id)}>
-                        <span role="img" aria-label="edit">✏️</span>
-                      </button>
-                      <button className="action-btn delete-btn" onClick={() => handleDelete(supplier.id)}>
-                        <span role="img" aria-label="delete">❌</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          <div className="pagination">Records: 1 to {suppliers.length} of {suppliers.length}</div>
-        </div>
+        </form>
       </div>
 
+      <div className="category-list">
+        <h2 className="list-title">Supplier List</h2>
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <div className="icons">
+            <span role="img" aria-label="export" className="icon">📤</span>
+            <span role="img" aria-label="print" className="icon">🖨️</span>
+            <span role="img" aria-label="close" className="icon">❌</span>
+          </div>
+        </div>
+
+        <table className="category-table">
+          <thead>
+            <tr>
+              <th className="table-header">Name</th>
+              <th className="table-header">Phone</th>
+              <th className="table-header">Email</th>
+              <th className="table-header">Address</th>
+              <th className="table-header">Contact Person</th>
+
+              <th className="table-header">Person Phone</th>
+              <th className="table-header">Person Email</th>
+               <th className="table-header">Description</th>
+              
+              <th className="table-header">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredSuppliers.map((supplier) => (
+              <tr key={supplier._id} className="table-row">
+                <td className="table-cell">{supplier.name}</td>
+                <td className="table-cell">{supplier.phone}</td>
+                <td className="table-cell">{supplier.email}</td>
+                <td className="table-cell">{supplier.address}</td>
+                <td className="table-cell">{supplier.contactPersonName}</td>
+                
+
+                <td className="table-cell">{supplier.contactPersonPhone}</td>
+                <td className="table-cell">{supplier.contactPersonEmail}</td>
+                 <td className="table-cell">{supplier.description}</td>
+
+                <td className="table-cell action-cell">
+                  <button className="action-btn edit-btn" onClick={() => handleEdit(supplier)}>
+                    ✏️
+                  </button>
+                  <button className="action-btn delete-btn" onClick={() => handleDelete(supplier._id)}>
+                    ❌
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="pagination">
+          Records: 1 to {filteredSuppliers.length} of {filteredSuppliers.length}
+        </div>
+      </div>
+    </div>
+
+    
+      {/* CSS Styles */}
       <style>{`
-        .supplier-container {
-          padding: 2rem;
+        .category-container {
+          padding: 20px;
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          font-size: 14px; /* Small font size */
+          font-size: 14px;
           min-height: 100vh;
-          width: 100%;
+          width: 100vw;
           background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
           overflow-x: hidden;
           display: flex;
           justify-content: center;
         }
 
-        .supplier-header {
+        .category-header {
           display: flex;
-          gap: 2rem;
+          gap: 30px;
           max-width: 1200px;
           width: 100%;
-          flex-wrap: wrap;
+        }
+
+        .add-form, .category-list {
+          background: white;
+          padding: 25px;
+          border-radius: 15px;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+          width: 100%;
         }
 
         .form-title, .list-title {
-          margin: 0 0 1.25rem 0;
+          margin-bottom: 20px;
           color: #2c3e50;
           font-weight: 600;
           text-transform: uppercase;
-          letter-spacing: 0.0625rem;
-        }
-
-        .add-form, .supplier-list {
-          background: white;
-          padding: 1.5rem;
-          border-radius: 0.9375rem;
-          box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.1);
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-          flex: 1;
-          min-width: 300px;
-        }
-
-        .add-form:hover, .supplier-list:hover {
-          transform: translateY(-0.3125rem);
-          box-shadow: 0 0.75rem 1.875rem rgba(0, 0, 0, 0.15);
+          letter-spacing: 1px;
         }
 
         .form-group {
-          margin-bottom: 0.9375rem;
+          margin-bottom: 15px;
         }
 
         .form-label {
           display: block;
-          margin-bottom: 0.3125rem;
+          margin-bottom: 5px;
           color: #34495e;
-          font-weight: 500;
         }
 
         .form-input {
           width: 100%;
-          padding: 0.625rem 0.75rem;
+          padding: 10px;
           border: 2px solid #ecf0f1;
-          border-radius: 0.5rem;
+          border-radius: 8px;
           font-size: 14px;
-          transition: border-color 0.3s ease, box-shadow 0.3s ease;
-          background: #ffffff;
         }
 
         .form-input:focus {
           border-color: #3498db;
-          box-shadow: 0 0 0.3125rem rgba(52, 152, 219, 0.5);
           outline: none;
         }
 
-        .form-input::placeholder {
-          color: #bdc3c7;
-        }
-
         .save-btn {
-          padding: 0.75rem 1.5625rem;
-          background: linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);
+          padding: 10px 20px;
+          background: #27ae60;
           color: white;
           border: none;
-          border-radius: 0.5rem;
+          border-radius: 8px;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          text-transform: uppercase;
-          transition: background 0.3s ease, transform 0.2s ease;
-          width: 100%;
-        }
-
-        .save-btn:hover {
-          background: linear-gradient(90deg, #27ae60 0%, #2ecc71 100%);
-          transform: translateY(-0.125rem);
         }
 
         .search-bar {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 1.25rem;
-          background: #fff;
-          padding: 0.625rem;
-          border-radius: 0.5rem;
-          box-shadow: 0 0.25rem 0.625rem rgba(0, 0, 0, 0.05);
+          margin-bottom: 20px;
         }
 
         .search-input {
-          padding: 0.625rem;
-          border: 2px solid #ecf0f1;
-          border-radius: 0.5rem;
-          font-size: 14px;
-          width: 70%;
-          transition: border-color 0.3s ease;
-        }
-
-        .search-input:focus {
-          border-color: #3498db;
-          outline: none;
+          flex: 1;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid #ccc;
+          margin-right: 10px;
         }
 
         .icons .icon {
-          font-size: 1.25rem;
-          margin-left: 0.625rem;
-          color: #7f8c8d;
-          transition: color 0.3s ease, transform 0.2s ease;
+          margin-left: 10px;
+          cursor: pointer;
+          font-size: 16px;
         }
 
-        .icons .icon:hover {
-          color: #3498db;
-          transform: scale(1.2);
-        }
-
-        .supplier-table {
+        .category-table {
           width: 100%;
-          border-collapse: separate;
-          border-spacing: 0;
-          background: #ffffff;
-          border-radius: 0.625rem;
-          overflow: hidden;
-          box-shadow: 0 0.25rem 0.9375rem rgba(0, 0, 0, 0.05);
+          border-collapse: collapse;
         }
 
         .table-header {
-          background: linear-gradient(90deg, #34495e 0%, #2c3e50 100%);
-          color: white;
-          padding: 0.75rem;
           text-align: left;
-          font-weight: 600;
-        }
-
-        .table-row {
-          transition: background 0.3s ease;
-        }
-
-        .table-row:hover {
-          background: #f9fbfd;
+          background: #1a2526;
+          color: white;
+          padding: 10px;
         }
 
         .table-cell {
-          padding: 0.75rem;
-          border-bottom: 1px solid #ecf0f1;
+          padding: 10px;
+          border-bottom: 1px solid #eee;
         }
 
         .action-cell {
           display: flex;
-          gap: 0.5rem;
+          gap: 10px;
         }
 
         .action-btn {
-          background: none;
+          padding: 6px 10px;
           border: none;
+          border-radius: 5px;
           cursor: pointer;
-          font-size: 1.125rem;
-          transition: transform 0.2s ease, color 0.2s ease;
+          font-size: 14px;
         }
 
         .edit-btn {
-          color: #3498db;
+          background: #2980b9;
+          color: white;
         }
 
         .delete-btn {
-          color: #e74c3c;
-        }
-
-        .action-btn:hover {
-          transform: scale(1.3);
+          background: #e74c3c;
+          color: white;
         }
 
         .pagination {
-          text-align: right;
-          margin-top: 0.9375rem;
-          color: #7f8c8d;
-          font-weight: 500;
-        }
-
-        @media (max-width: 1024px) {
-          .supplier-header {
-            gap: 1.5rem;
-          }
-          .add-form, .supplier-list {
-            flex: 1 1 45%;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .supplier-header {
-            flex-direction: column;
-            gap: 1rem;
-          }
-          .add-form, .supplier-list {
-            flex: 1 1 100%;
-            min-width: 0;
-          }
-          .supplier-table th, .supplier-table td {
-            font-size: 12px;
-            padding: 0.5rem;
-          }
-          .form-input {
-            font-size: 12px;
-          }
-          .save-btn {
-            width: 100%;
-          }
-          .search-input {
-            width: 60%;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .supplier-container {
-            padding: 1rem;
-          }
-          .form-title, .list-title {
-            font-size: 1.125rem;
-          }
-          .form-input {
-            padding: 0.5rem 0.625rem;
-          }
-          .save-btn {
-            padding: 0.625rem 1.25rem;
-            font-size: 12px;
-          }
-          .search-bar {
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-          .search-input {
-            width: 100%;
-          }
-          .icons {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-          }
-          .icons .icon {
-            margin: 0 0.3125rem;
-          }
-          .table-header, .table-cell {
-            padding: 0.375rem;
-          }
-          .pagination {
-            font-size: 12px;
-          }
+          margin-top: 15px;
+          font-size: 12px;
+          color: #555;
         }
       `}</style>
-    </div>
-  );
+      {/* Snackbar */}
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnack}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnack} severity={snack.severity}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+  </div>
+);
 };
 
 export default ItemSupplier;

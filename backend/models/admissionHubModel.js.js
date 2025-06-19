@@ -5,7 +5,7 @@ const admissionHubSchema = new mongoose.Schema(
   {
     studentName: { type: String, required: true, trim: true },
     admissionNo: { type: String, required: true, unique: true, trim: true },
-    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Fclass', required: true },
+    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
     section: { type: String, required: true, trim: true },
     school: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
   },

@@ -1,380 +1,351 @@
-import React, { useState } from 'react';
+// src/components/IssueItemList.jsx
+import React, { useState, useEffect } from 'react';
+import {
+  Box, Typography, TextField, Select, MenuItem, Button, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper, IconButton, Snackbar, Alert, Modal, InputLabel, FormControl,
+} from '@mui/material';
+import { Search as SearchIcon, Delete as DeleteIcon, Print as PrintIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import { CSVLink } from 'react-csv';
+import {
+  getAllIssueItems, createIssueItem, updateIssueItem, deleteIssueItem, clearIssueItemError,
+} from '../../../redux/IssueItemStock/IssueItemAction';
 
 const IssueItemList = () => {
-  const [items, setItems] = useState([
-    { id: 1, item: 'Staff Uniform', category: 'Staff Dress', issueDate: '04/25/2025', issueTo: 'Maria Ford (9005)', issuedBy: 'Brandon Heart (9006)', quantity: 5, status: 'Issued' },
-    { id: 2, item: 'Projectors', category: 'Chemistry Lab Apparatus', issueDate: '04/22/2025', issueTo: 'Jason Charlton (9006)', issuedBy: 'William Abbot (9003)', quantity: 2, status: 'Issued' },
-    { id: 3, item: 'Paper and Pencils', category: 'Books Stationery', issueDate: '04/15/2025', issueTo: 'Brandon Heart (9006)', issuedBy: 'James Deckard (9004)', quantity: 5, status: 'Issued' },
-    { id: 4, item: 'Football', category: 'Sports', issueDate: '04/10/2025', issueTo: 'James Deckard (9004)', issuedBy: 'Maria Ford (9005)', quantity: 2, status: 'Returned' },
-    { id: 5, item: 'Notebooks', category: 'Books Stationery', issueDate: '04/05/2025', issueTo: 'Jason Charlton (9006)', issuedBy: 'Brandon Heart (9006)', quantity: 5, status: 'Issued' },
-  ]);
-
+  const dispatch = useDispatch();
+  const { issueItemsList, loading, error } = useSelector((state) => state.issueItem || {});
+  const adminID = useSelector((state) => state.user?.currentUser?._id);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showPopup, setShowPopup] = useState(false);
+  const [openModal, setOpenModal] = useState(false);
   const [newItem, setNewItem] = useState({
-    item: '', category: '', issueDate: '', issueTo: '', issuedBy: '', quantity: '', status: 'Issued',
+    item: '', category: 'Select', issueDate: '', issueTo: '', issuedBy: '', quantity: '', status: 'Issued',
   });
+
+  const categories = ['Select', 'Chemistry Lab Apparatus', 'Books Stationery', 'Staff Dress', 'Furniture', 'Sports'];
+  const people = ['Select', 'Maria Ford (9005)', 'Jason Charlton (9006)', 'Brandon Heart (9006)', 'William Abbot (9003)', 'James Deckard (9004)'];
+
+  useEffect(() => {
+    if (adminID) {
+      dispatch(getAllIssueItems(adminID));
+    } else {
+      setSnack({ open: true, message: 'Please log in to view issue items', severity: 'error' });
+    }
+  }, [dispatch, adminID]);
+
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    if (error) {
+      setSnack({ open: true, message: error, severity: 'error' });
+      dispatch(clearIssueItemError());
+    }
+  }, [error, dispatch]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewItem({ ...newItem, [name]: value });
+    setNewItem((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleIssueItem = () => {
-    if (
-      newItem.item &&
-      newItem.category &&
-      newItem.issueDate &&
-      newItem.issueTo &&
-      newItem.issuedBy &&
-      newItem.quantity
-    ) {
-      setItems([...items, { ...newItem, id: Date.now() }]);
-      setNewItem({ item: '', category: '', issueDate: '', issueTo: '', issuedBy: '', quantity: '', status: 'Issued' });
-      setShowPopup(false);
-    } else {
-      alert('Please fill all fields.');
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to add issue items', severity: 'error' });
+      return;
     }
+    if (
+      !newItem.item || newItem.category === 'Select' || !newItem.issueDate ||
+      newItem.issueTo === 'Select' || newItem.issuedBy === 'Select' || !newItem.quantity
+    ) {
+      setSnack({ open: true, message: 'Please fill all required fields', severity: 'warning' });
+      return;
+    }
+
+    const payload = {
+      item: newItem.item,
+      category: newItem.category,
+      issueDate: newItem.issueDate,
+      issueTo: newItem.issueTo,
+      issuedBy: newItem.issuedBy,
+      quantity: parseInt(newItem.quantity),
+      status: newItem.status,
+    };
+
+    dispatch(createIssueItem(payload, adminID))
+      .then(() => {
+        setSnack({ open: true, message: 'Issue item added successfully', severity: 'success' });
+        setNewItem({
+          item: '', category: 'Select', issueDate: '', issueTo: 'Select', issuedBy: 'Select', quantity: '', status: 'Issued',
+        });
+        setOpenModal(false);
+      })
+      .catch((err) => {
+        setSnack({ open: true, message: err.message || 'Failed to add issue item', severity: 'error' });
+      });
   };
 
-  const handleReturnItem = (id) => {
-    setItems(items.map(item =>
-      item.id === id ? { ...item, status: 'Returned' } : item
-    ));
+  const handleReturnItem = (item) => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to update issue items', severity: 'error' });
+      return;
+    }
+    dispatch(updateIssueItem({ id: item._id, issueItem: { ...item, status: 'Returned' }, adminID }))
+      .then(() => {
+        setSnack({ open: true, message: 'Item marked as returned', severity: 'success' });
+      })
+      .catch((err) => {
+        setSnack({ open: true, message: err.message || 'Failed to update issue item', severity: 'error' });
+      });
   };
 
   const handleDeleteItem = (id) => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to delete issue items', severity: 'error' });
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete item with ID: ${id}?`)) {
-      setItems(items.filter(item => item.id !== id));
+      dispatch(deleteIssueItem(id, adminID))
+        .then(() => {
+          setSnack({ open: true, message: 'Issue item deleted successfully', severity: 'info' });
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to delete issue item', severity: 'error' });
+        });
     }
   };
 
-  return (
-    <div className="issue-container">
-      <div className="header">
-        <h2>Issue Item List</h2>
-        <button className="issue-btn" onClick={() => setShowPopup(true)}>Issue Item</button>
-      </div>
+  const handlePrint = () => {
+    window.print();
+    setSnack({ open: true, message: 'Printing issue items', severity: 'info' });
+  };
 
-      <div className="search-bar">
-        <input
-          type="text"
-          placeholder="Search..."
+  const filteredItems = issueItemsList.filter(
+    (item) =>
+      item.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const csvData = filteredItems.map((item) => ({
+    Item: item.item,
+    Category: item.category,
+    IssueDate: new Date(item.issueDate).toLocaleDateString(),
+    IssueTo: item.issueTo,
+    IssuedBy: item.issuedBy,
+    Quantity: item.quantity,
+    Status: item.status,
+  }));
+
+  return (
+    <Box sx={{ p: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          Issue Item List
+        </Typography>
+        <Button
+          variant="contained"
+          color="success"
+          onClick={() => setOpenModal(true)}
+          sx={{ fontSize: 14 }}
+        >
+          Issue Item
+        </Button>
+      </Box>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <TextField
+          label="Search items"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
+          sx={{ width: '300px' }}
+          InputProps={{
+            startAdornment: (
+              <SearchIcon sx={{ mr: 1, color: 'action.active' }} />
+            ),
+          }}
         />
-        <select className="status-filter">
-          <option value="100">100</option>
-        </select>
-        <div className="icons">
-          <span role="img" aria-label="export">📤</span>
-          <span role="img" aria-label="print">🖨️</span>
-          <span role="img" aria-label="close">❌</span>
-        </div>
-      </div>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <CSVLink
+            data={csvData}
+            filename="issue-items.csv"
+            style={{ textDecoration: 'none' }}
+            onClick={() => setSnack({ open: true, message: 'Exporting issue items as CSV', severity: 'info' })}
+          >
+            <IconButton sx={{ color: '#666' }} title="Export">
+              <DownloadIcon />
+            </IconButton>
+          </CSVLink>
+          <IconButton sx={{ color: '#666' }} onClick={handlePrint} title="Print">
+            <PrintIcon />
+          </IconButton>
+        </Box>
+      </Box>
 
-      <table className="issue-table">
-        <thead>
-          <tr>
-            {['Item', 'Note', 'Item Category', 'Issue - Return', 'Issue To', 'Issued By', 'Quantity', 'Status', 'Action'].map(header => (
-              <th key={header}>{header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {items
-            .filter(item =>
-              item.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              item.category.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map(item => (
-              <tr key={item.id} className="table-row">
-                <td>{item.item}</td>
-                <td>-</td>
-                <td>{item.category}</td>
-                <td>{item.issueDate}</td>
-                <td>{item.issueTo}</td>
-                <td>{item.issuedBy}</td>
-                <td>{item.quantity}</td>
-                <td>
-                  <span className={item.status === 'Returned' ? 'status-returned' : 'status-issued'}>
-                    {item.status}
-                  </span>
-                </td>
-                <td>
-                  {item.status === 'Issued' && (
-                    <button className="action-btn return-btn" onClick={() => handleReturnItem(item.id)}>
-                      Click to Return
-                    </button>
-                  )}
-                  <button className="action-btn delete-btn" onClick={() => handleDeleteItem(item.id)}>
-                    <span role="img" aria-label="delete">❌</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#1a2526' }}>
+              {['Item', 'Note', 'Category', 'Issue Date', 'Issue To', 'Issued By', 'Quantity', 'Status', 'Action'].map((header) => (
+                <TableCell key={header} sx={{ color: '#fff', fontWeight: 600 }}>
+                  {header}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ textAlign: 'center' }}>
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} sx={{ textAlign: 'center' }}>
+                  No items found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredItems.map((item) => (
+                <TableRow key={item._id}>
+                  <TableCell>{item.item}</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>{item.category}</TableCell>
+                  <TableCell>{new Date(item.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{item.issueTo}</TableCell>
+                  <TableCell>{item.issuedBy}</TableCell>
+                  <TableCell>{item.quantity}</TableCell>
+                  <TableCell>
+                    <Box
+                      sx={{
+                        color: item.status === 'Returned' ? '#388e3c' : '#d32f2f',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {item.status}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    {item.status === 'Issued' && (
+                      <Button
+                        variant="contained"
+                        color="error"
+                        size="small"
+                        onClick={() => handleReturnItem(item)}
+                        sx={{ mr: 1 }}
+                      >
+                        Return
+                      </Button>
+                    )}
+                    <IconButton onClick={() => handleDeleteItem(item._id)} disabled={loading}>
+                      <DeleteIcon color="error" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {showPopup && (
-        <div className="popup-overlay">
-          <div className="popup-content">
-            <h3>Issue New Item</h3>
-            <div className="popup-form">
-              <input
-                type="text"
-                name="item"
-                placeholder="Item"
-                value={newItem.item}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <input
-                type="text"
-                name="category"
-                placeholder="Category"
-                value={newItem.category}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <input
-                type="date"
-                name="issueDate"
-                value={newItem.issueDate}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <input
-                type="text"
-                name="issueTo"
-                placeholder="Issue To"
-                value={newItem.issueTo}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <input
-                type="text"
-                name="issuedBy"
-                placeholder="Issued By"
-                value={newItem.issuedBy}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <input
-                type="number"
-                name="quantity"
-                placeholder="Quantity"
-                value={newItem.quantity}
-                onChange={handleInputChange}
-                className="popup-input"
-              />
-              <div className="popup-actions">
-                <button className="save-btn" onClick={handleIssueItem}>Save</button>
-                <button className="cancel-btn" onClick={() => setShowPopup(false)}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal open={openModal} onClose={() => setOpenModal(false)}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 1,
+            width: { xs: '90%', sm: 400 },
+          }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Issue New Item
+          </Typography>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Category *</InputLabel>
+            <Select name="category" value={newItem.category} onChange={handleInputChange}>
+              {categories.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Item *"
+            name="item"
+            value={newItem.item}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Issue Date *"
+            name="issueDate"
+            type="date"
+            value={newItem.issueDate}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Issue To *</InputLabel>
+            <Select name="issueTo" value={newItem.issueTo} onChange={handleInputChange}>
+              {people.map((person) => (
+                <MenuItem key={person} value={person}>{person}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Issued By *</InputLabel>
+            <Select name="issuedBy" value={newItem.issuedBy} onChange={handleInputChange}>
+              {people.map((person) => (
+                <MenuItem key={person} value={person}>{person}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Quantity *"
+            name="quantity"
+            type="number"
+            value={newItem.quantity}
+            onChange={handleInputChange}
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleIssueItem}
+              disabled={loading}
+            >
+              Save
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setOpenModal(false)}
+            >
+              Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
 
-      <style>{`
-        .issue-container {
-          padding: 20px;
-          font-family: 'Segoe UI', sans-serif;
-          font-size: 14px; /* Small font size */
-          min-height: 100vh;
-          width: 100vw;
-          background-color: #f5f5f5;
-          overflow-x: hidden;
-        }
-
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        h2 {
-          margin: 0;
-          color: #333;
-        }
-
-        .issue-btn {
-          padding: 8px 16px;
-          background-color: #00796b;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .issue-btn:hover {
-          background-color: #004d40;
-        }
-
-        .search-bar {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 15px;
-        }
-
-        .search-input, .status-filter {
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 14px;
-        }
-
-        .icons span {
-          font-size: 18px;
-          margin-left: 8px;
-          cursor: pointer;
-        }
-
-        .issue-table {
-          width: 100%;
-          border-collapse: collapse;
-          background-color: #fff;
-          border-radius: 5px;
-          overflow: hidden;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .issue-table th, .issue-table td {
-          padding: 10px;
-          text-align: left;
-          border-bottom: 1px solid #ddd;
-        }
-
-        .issue-table th {
-          background-color: #00796b;
-          color: white;
-        }
-
-        .table-row:hover {
-          background-color: #f0f0f0;
-        }
-
-        .status-issued {
-          color: #d32f2f;
-          font-weight: bold;
-        }
-
-        .status-returned {
-          color: #388e3c;
-          font-weight: bold;
-        }
-
-        .action-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 14px;
-          margin-right: 8px;
-          transition: transform 0.2s;
-        }
-
-        .return-btn {
-          background-color: #d32f2f;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 5px;
-        }
-
-        .return-btn:hover {
-          background-color: #b71c1c;
-        }
-
-        .delete-btn:hover {
-          transform: scale(1.2);
-          color: #b71c1c;
-        }
-
-        .popup-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        }
-
-        .popup-content {
-          background-color: #fff;
-          padding: 15px;
-          border-radius: 5px;
-          width: 400px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .popup-form {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .popup-input {
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 14px;
-        }
-
-        .popup-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-top: 15px;
-        }
-
-        .save-btn, .cancel-btn {
-          padding: 8px 16px;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .save-btn {
-          background-color: #00796b;
-          color: white;
-        }
-
-        .save-btn:hover {
-          background-color: #004d40;
-        }
-
-        .cancel-btn {
-          background-color: #ddd;
-          color: #333;
-        }
-
-        .cancel-btn:hover {
-          background-color: #bbb;
-        }
-
-        @media (max-width: 768px) {
-          .issue-container {
-            padding: 10px;
-          }
-          .issue-table th, .issue-table td {
-            font-size: 12px;
-            padding: 6px;
-          }
-          .popup-content {
-            width: 90%;
-          }
-        }
-      `}</style>
-    </div>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+      >
+        <Alert
+          onClose={() => setSnack({ ...snack, open: false })}
+          severity={snack.severity}
+          sx={{ width: '100%' }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

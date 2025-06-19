@@ -391,6 +391,358 @@ console.log('Registering quick fees master routes');
 router.post('/quick-fees-master', quickFeesMasterController.generateInstallmentPlan);
 router.get('/quick-fees-options/:adminID', quickFeesMasterController.getQuickFeesOptions);
 
+const feeBalanceController = require('../controllers/feeBalanceController');
+
+console.log('Registering fee balance routes');
+router.get('/fee-balances/:adminID', feeBalanceController.getFeeBalances);
+router.put('/fee-balances', feeBalanceController.updateFeeBalances);
+
+
+
+
+const discountController = require('../controllers/discountController');
+
+console.log('Registering discount routes');
+router.get('/discounts/:adminID', discountController.getDiscounts);
+router.post('/discounts/:adminID', discountController.createDiscount);
+router.put('/discounts/:adminID/:id', discountController.updateDiscount);
+router.delete('/discounts/:adminID/:id', discountController.deleteDiscount);
+
+
+const reminderController = require('../controllers/reminderController');
+
+console.log('Registering reminder routes');
+router.get('/reminders/:adminID', reminderController.getReminders);
+router.put('/reminders/:adminID', reminderController.updateReminders);
+
+  const {
+                createStore, 
+                getStores, 
+                updateStore, 
+                deleteStore, 
+                getStoreById 
+              } 
+              = require('../controllers/store-controller');
+
+
+/* const { 
+  addItemStock,
+  getAllItemStocks,
+  getItemStockDetails,
+  updateItemStock,
+  deleteItemStock
+} = require('../controllers/Item');
+   */
+
+
+  /* const {
+  createSupplier,
+  getSuppliers,
+  getSupplierById,
+  updateSupplier,
+  deleteSupplier
+} = require('../controllers/supplierController.ts'); */
+ const {
+  createSupplier,
+  getSuppliers,
+  getSupplierById,
+  updateSupplier,
+  deleteSupplier
+} = require('../controllers/supplierController'); // Supplier Controller
+
+
+
+
+
+
+
+
+const {
+addItemStock,
+getAllItemStocks,
+getItemStockById,
+updateItemStock,
+deleteItemStock,
+//clearItemStockErrorAction
+} = require('../controllers/AdditemController');
+
+
+const {
+  createIssueItemStock,
+  getAllIssueItemStocks,
+  getIssueItemStockDetails,
+  updateIssueItemStock,
+  deleteIssueItemStock,
+  clearIssueItemStockErrorAction
+} = require('../controllers/issueItemStockController'); // No .ts extension
+
+
+
+const {
+  createDivision,
+  getDivisions,
+  getDivisionById,
+  updateDivision,
+  deleteDivision
+
+}= require('../controllers/division.controller'); 
+// Route to create a division
+//router.post('/divisions', createDivision);
+router.post('/DivisionCreate', createDivision);
+// Route to get all divisions by adminID (query parameter)
+//router.get('/divisions', getDivisions);
+router.get('/DivisionList', getDivisions);
+// Route to get a division by its ID (URL param)
+router.get('/Divisions/:id', getDivisionById);
+// Route to update a division by ID
+router.put('/Divisions/:id', updateDivision);
+// Route to delete a division by ID and adminID in body
+router.delete('/Divisions/:id', deleteDivision);
+
+
+const {
+  createMarkGrade,
+  getAllMarkGrades,
+  updateMarkGrade,
+  deleteMarkGrade
+} = require('../controllers/MarkGradeController');
+
+
+router.post('/markgrade', createMarkGrade); // Singular
+router.get('/markgrade', getAllMarkGrades); // Singular
+router.put('/markgrade/:id', updateMarkGrade); // Singular
+router.delete('/markgrade/:id', deleteMarkGrade); // Singular
+
+// Issue Item Stock Routes
+              
+const issueItemController = require('../controllers/issueItemStockController');
+
+// Routes for issue items
+router.get('/issue-items/:adminID', issueItemController.getIssueItems); // Get all issue items
+router.post('/issue-item', issueItemController.addIssueItem); // Add new issue item
+router.put('/issue-item/:id', issueItemController.updateIssueItem); // Update issue item
+router.delete('/issue-item/:id', issueItemController.deleteIssueItem); 
+
+
+// Item Routes (consistent with /suppliers style)
+const itemController = require('../controllers/itemController');
+
+router.get('/items/:adminID', itemController.getAllItems);
+router.post('/items', itemController.addItem);
+router.put('/items/:id', itemController.updateItem);
+router.delete('/items/:id', itemController.deleteItem);
+
+
+router.post('/itemstocks', addItemStock);               // Create Item
+router.get('/itemstocks', getAllItemStocks);               // Get all Items
+router.get('/itemstocks/:id', getItemStockById);        // Get Item by ID
+router.put('/itemstocks/:id', updateItemStock);            // Update Item
+router.delete('/itemstocks/:id', deleteItemStock);         // Delete Item
+ 
+
+
+
+/* router.post('/itemstocks', upload.single('document'), addItemStock);               // Create ItemStock with file
+router.put('/itemstocks/:id', upload.single('document'), updateItemStock);         // Update ItemStock with file
+router.get('/itemstocks', getAllItemStocks);                                       // Get all ItemStocks
+router.get('/itemstocks/:id', getItemStockById);                                   // Get ItemStock by ID
+router.delete('/itemstocks/:id', deleteItemStock); 
+ */
+       
+
+// Subject Group routes (Newly added)
+
+router.post('/suppliers', createSupplier);               // Create Supplier
+router.get('/suppliers', getSuppliers);                  // Get all Suppliers
+router.get('/suppliers/:id', getSupplierById);           // Get Supplier by ID
+router.put('/suppliers/:id', updateSupplier);            // Update Supplier
+router.delete('/suppliers/:id', deleteSupplier);         // Delete Supplier
+
+
+
+const {
+  createCategoryCard,
+  getCategoryCards,
+  getCategoryCardById,
+  updateCategoryCard,
+  deleteCategoryCard
+} = require('../controllers/category2Controller.ts');
+
+// Create CategoryCard
+router.post('/categoryCards', createCategoryCard);
+
+// Get all CategoryCards (optionally by adminID)
+router.get('/categoryCards', getCategoryCards);
+
+// Get CategoryCard by ID
+router.get('/categoryCards/:id', getCategoryCardById);
+
+// Update CategoryCard by ID
+router.put('/categoryCards/:id', updateCategoryCard);
+
+// Delete CategoryCard by ID
+router.delete('/categoryCards/:id', deleteCategoryCard);
+
+
+
+
+
+router.post('/StoreCreate', createStore);
+router.get('/StoreList', getStores);
+router.put('/Store/:id', updateStore);
+router.delete('/Store/:id', deleteStore);
+router.get('/Store/:id', getStoreById);
+
+
+const stockItemController = require('../controllers/stockItemController');
+
+
+
+router.get('/stock-items/:adminID',  stockItemController.getStockItems);
+router.post('/stock-item',  upload.single('document'), stockItemController.addStockItem);
+router.put('/stock-item/:id', upload.single('document'), stockItemController.updateStockItem);
+router.delete('/stock-item/:id', stockItemController.deleteStockItem);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

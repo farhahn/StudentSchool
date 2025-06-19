@@ -1,13 +1,13 @@
-const React = require('react')
-const { useState, useEffect } = React;
-const { useDispatch, useSelector } = require('react-redux');
-const { toast, ToastContainer } = require('react-toastify');
-require('react-toastify/dist/ReactToastify.css');
-const styled = require('styled-components').default;
-const {
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import styled from 'styled-components';
+import {
   generateInstallmentPlan,
   fetchQuickFeesOptions,
-} = require('../../../redux/StudentAddmissionDetail/studentAddmissionHandle');
+  fetchAdmissionForms,
+} from '../../../redux/StudentAddmissionDetail/studentAddmissionHandle';
 
 const Container = styled.div`
   font-family: 'Poppins', sans-serif;
@@ -64,6 +64,9 @@ const Input = styled.input`
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }
+  &:invalid {
+    border-color: #ef4444;
+  }
 `;
 
 const Select = styled.select`
@@ -98,6 +101,27 @@ const Button = styled.button`
     transform: translateY(-1px);
     box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
   }
+  &:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+  }
+`;
+
+const RetryButton = styled.button`
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  transition: all 0.2s ease;
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2);
+  }
 `;
 
 const Required = styled.span`
@@ -110,13 +134,14 @@ const Icon = styled.svg`
   height: 20px;
 `;
 
-const QuickFeesMaster = () => {
+const QuickFeesMaster: React.FC = () => {
   const dispatch = useDispatch();
-  const admissionFormsState = useSelector((state) => state.admissionForms);
-  const quickFeesOptions = admissionFormsState?.quickFeesOptions ?? { classes: [], sections: [], students: [] };
+  const admissionFormsState = useSelector((state: any) => state.admissionForms);
+  const quickFeesOptions = admissionFormsState?.quickFeesOptions ?? { classes: [], sections: [] };
+  const admissionForms = admissionFormsState?.admissionForms ?? [];
   const loading = admissionFormsState?.loading ?? false;
   const error = admissionFormsState?.error ?? null;
-  const { currentUser } = useSelector((state) => state.user);
+  const { currentUser } = useSelector((state: any) => state.user);
   const adminID = currentUser?._id;
 
   const [formData, setFormData] = useState({
@@ -131,36 +156,80 @@ const QuickFeesMaster = () => {
     fineType: 'Fix Amount',
     fineValue: '',
   });
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const { classes = [], sections = [], students = [] } = quickFeesOptions;
+  const { classes = [], sections = [] } = quickFeesOptions;
 
-  // Debug data fetching and filtering
+  // Fetch data on mount
   useEffect(() => {
+    if (adminID) {
+      dispatch(fetchQuickFeesOptions(adminID));
+      dispatch(fetchAdmissionForms(adminID)).catch((err: any) => {
+        console.error('Initial fetchAdmissionForms failed:', err);
+        setFetchError(err.message || 'Failed to load student data. Please try refreshing the page.');
+      });
+    } else {
+      toast.error('Please log in to generate fees plans', { position: 'top-right', autoClose: 3000 });
+      setFetchError('User not authenticated. Please log in.');
+    }
     console.log('QuickFeesMaster Redux state:', {
       admissionFormsState,
       quickFeesOptions,
+      admissionForms,
       classes,
       sections,
-      students,
       loading,
       error,
     });
-    if (adminID) {
-      dispatch(fetchQuickFeesOptions(adminID));
-    } else {
-      toast.error('Please log in to generate fees plans', { position: 'top-right', autoClose: 3000 });
-    }
   }, [dispatch, adminID]);
 
-  // Debug form data changes
+  // Debug form data and filtered students
   useEffect(() => {
     console.log('Form data updated:', formData);
-    console.log('Filtered students:', students.filter(
-      (student) => student.classId === formData.classId && student.section === formData.section
-    ));
-  }, [formData, students]);
+    console.log('Filtered students:', filteredStudents);
+  }, [formData, admissionForms]);
 
-  const handleSubmit = async (e) => {
+  // Calculate balance fees dynamically
+  useEffect(() => {
+    const total = parseFloat(formData.totalFees) || 0;
+    const first = parseFloat(formData.firstInstallment) || 0;
+    const balance = total - first;
+    setFormData((prev) => ({
+      ...prev,
+      balanceFees: isNaN(balance) ? '' : balance.toFixed(2),
+    }));
+  }, [formData.totalFees, formData.firstInstallment]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'classId' ? { section: '', studentId: '' } : {}),
+      ...(name === 'section' ? { studentId: '' } : {}),
+    }));
+  };
+
+  const handleRetryFetch = async () => {
+    if (!adminID) {
+      toast.error('Please log in to retry fetching student data', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    try {
+      await dispatch(fetchAdmissionForms(adminID));
+      setFetchError(null);
+      toast.success('Student data refreshed successfully', { position: 'top-right', autoClose: 3000 });
+    } catch (err: any) {
+      console.error('Retry fetchAdmissionForms failed:', err);
+      setFetchError(err.message || 'Failed to refresh student data. Please try again.');
+      toast.error(err.message || 'Failed to refresh student data. Please try again.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.classId || !formData.section || !formData.studentId || !formData.totalFees || !formData.balanceFees || !formData.dueDateDay) {
@@ -173,12 +242,67 @@ const QuickFeesMaster = () => {
       return;
     }
 
+    // Refetch admission forms to ensure data is up-to-date
+    try {
+      await dispatch(fetchAdmissionForms(adminID));
+    } catch (err: any) {
+      console.error('fetchAdmissionForms in handleSubmit failed:', err);
+      toast.error(err.message || 'Failed to refresh student data. Please try again.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    // Recompute filtered students after refetching
+    const latestFilteredStudents = admissionForms.filter(
+      (form: any) => {
+        const studentClassId = typeof form.classId === 'string' ? form.classId : form.classId?._id || '';
+        const matchesClass = studentClassId === formData.classId;
+        const matchesSection = !formData.section || form.section === formData.section;
+        return matchesClass && matchesSection;
+      }
+    );
+
+    // Validate that the selected studentId still matches the classId and section
+    const selectedStudent = latestFilteredStudents.find((form: any) => form._id === formData.studentId);
+    if (!selectedStudent) {
+      toast.error(
+        'The selected student is no longer available or does not match the selected class/section. Please reselect the student.',
+        { position: 'top-right', autoClose: 3000 }
+      );
+      setFormData((prev) => ({ ...prev, studentId: '' }));
+      return;
+    }
+
     const totalFees = parseFloat(formData.totalFees);
     const firstInstallment = parseFloat(formData.firstInstallment) || 0;
     const balanceFees = parseFloat(formData.balanceFees);
 
-    if (totalFees !== firstInstallment + balanceFees) {
-      toast.error('Total fees must equal first installment plus balance fees', { position: 'top-right', autoClose: 3000 });
+    // Validate numeric inputs
+    if (isNaN(totalFees) || totalFees <= 0) {
+      toast.error('Total fees must be a valid positive number', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    if (isNaN(balanceFees) || balanceFees < 0) {
+      toast.error('Balance fees must be a valid non-negative number', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    if (firstInstallment < 0) {
+      toast.error('First installment cannot be negative', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+
+    // Round to 2 decimal places to avoid floating-point issues
+    const roundedTotalFees = parseFloat(totalFees.toFixed(2));
+    const roundedFirstInstallment = parseFloat(firstInstallment.toFixed(2));
+    const roundedBalanceFees = parseFloat(balanceFees.toFixed(2));
+
+    if (roundedTotalFees !== roundedFirstInstallment + roundedBalanceFees) {
+      toast.error(
+        `Total fees (${roundedTotalFees}) must equal first installment (${roundedFirstInstallment}) plus balance fees (${roundedBalanceFees})`,
+        { position: 'top-right', autoClose: 3000 }
+      );
       return;
     }
 
@@ -196,9 +320,9 @@ const QuickFeesMaster = () => {
       classId: formData.classId,
       section: formData.section,
       studentId: formData.studentId,
-      totalFees,
-      firstInstallment,
-      balanceFees,
+      totalFees: roundedTotalFees,
+      firstInstallment: roundedFirstInstallment,
+      balanceFees: roundedBalanceFees,
       installments: parseInt(formData.installments),
       dueDateDay: parseInt(formData.dueDateDay),
       fineType: formData.fineType,
@@ -206,8 +330,10 @@ const QuickFeesMaster = () => {
       adminID,
     };
 
+    console.log('Submitting payload:', payload);
+
     try {
-      await dispatch(generateInstallmentPlan(payload)).unwrap();
+      await dispatch(generateInstallmentPlan(payload));
       toast.success('Installment plan generated successfully', { position: 'top-right', autoClose: 3000 });
       setFormData({
         classId: '',
@@ -221,265 +347,350 @@ const QuickFeesMaster = () => {
         fineType: 'Fix Amount',
         fineValue: '',
       });
-    } catch (error) {
-      toast.error(`Failed to generate installment plan: ${error}`, { position: 'top-right', autoClose: 3000 });
+    } catch (error: any) {
+      const errorMessage = error.message || error;
+      if (errorMessage.includes('404')) {
+        toast.error(
+          'Failed to generate installment plan: The server could not find the endpoint. Please contact support.',
+          { position: 'top-right', autoClose: 5000 }
+        );
+      } else if (errorMessage.includes('Student not found or does not match class/section')) {
+        toast.error(
+          'Failed to generate installment plan: The selected student does not match the class or section. Please reselect the student.',
+          { position: 'top-right', autoClose: 5000 }
+        );
+        setFormData((prev) => ({ ...prev, studentId: '' }));
+      } else {
+        toast.error(
+          `Failed to generate installment plan: ${errorMessage}. Please try again or contact support.`,
+          { position: 'top-right', autoClose: 5000 }
+        );
+      }
     }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-      ...(name === 'classId' ? { section: '', studentId: '' } : {}),
-      ...(name === 'section' ? { studentId: '' } : {}),
-    }));
   };
 
   // Filter sections based on selected class
   const filteredSections = formData.classId
-    ? classes.find((cls) => cls._id === formData.classId)?.sections || []
+    ? classes.find((cls: any) => cls._id === formData.classId)?.sections || []
     : [];
 
-  // Filter students based on selected class and section
-  const filteredStudents = students.filter(
-    (student) => {
-      const matchesClass = student.classId === formData.classId;
-      const matchesSection = student.section === formData.section;
-      console.log('Filtering student:', { student, classId: formData.classId, section: formData.section, matchesClass, matchesSection });
+  // Filter students from admissionForms based on selected class and section
+  const filteredStudents = admissionForms.filter(
+    (form: any) => {
+      const studentClassId = typeof form.classId === 'string' ? form.classId : form.classId?._id || '';
+      const matchesClass = studentClassId === formData.classId;
+      const matchesSection = !formData.section || form.section === formData.section;
+      console.log('Filtering student:', {
+        student: {
+          id: form._id,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          classId: studentClassId,
+          section: form.section,
+        },
+        studentClassId,
+        formDataClassId: formData.classId,
+        section: formData.section,
+        matchesClass,
+        matchesSection,
+      });
       return matchesClass && matchesSection;
     }
   );
 
+  // Determine if the form is valid for submission
+  const isFormValid = () => {
+    const totalFees = parseFloat(formData.totalFees);
+    const firstInstallment = parseFloat(formData.firstInstallment) || 0;
+    const balanceFees = parseFloat(formData.balanceFees);
+    return (
+      formData.classId &&
+      formData.section &&
+      formData.studentId &&
+      !isNaN(totalFees) &&
+      totalFees > 0 &&
+      !isNaN(balanceFees) &&
+      balanceFees >= 0 &&
+      firstInstallment >= 0 &&
+      !isNaN(parseFloat(totalFees.toFixed(2))) &&
+      parseFloat(totalFees.toFixed(2)) === parseFloat((firstInstallment + balanceFees).toFixed(2)) &&
+      formData.dueDateDay &&
+      (formData.fineValue ? parseFloat(formData.fineValue) >= 0 : true) &&
+      !fetchError // Disable form submission if there's a fetch error
+    );
+  };
+
   return (
-    React.createElement(React.Fragment, null,
-      React.createElement('link', {
-        href: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap',
-        rel: 'stylesheet'
-      }),
-      React.createElement(Container, null,
-        React.createElement(ToastContainer, { position: 'top-right', autoClose: 3000 }),
-        React.createElement(Header, null,
-          React.createElement(Icon, {
-            fill: 'none',
-            stroke: 'currentColor',
-            viewBox: '0 0 24 24'
-          },
-            React.createElement('path', {
-              strokeLinecap: 'round',
-              strokeLinejoin: 'round',
-              strokeWidth: '2',
-              d: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-            })
-          ),
-          'Quick Fees Master'
-        ),
+    <>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
+      <Container>
+        <ToastContainer position="top-right" autoClose={3000} />
+        <Header>
+          <Icon fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </Icon>
+          Quick Fees Master
+        </Header>
 
-        error && React.createElement('div', {
-          style: { color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }
-        }, error),
+        {loading && (
+          <div style={{ color: '#34495e', textAlign: 'center', marginBottom: '1rem' }}>
+            Loading...
+          </div>
+        )}
 
-        React.createElement('form', { onSubmit: handleSubmit },
-          React.createElement(FormGrid, null,
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null,
-                'Class',
-                React.createElement(Required, null, '*')
-              ),
-              React.createElement(Select, {
-                name: 'classId',
-                value: formData.classId,
-                onChange: handleChange,
-                required: true
-              },
-                React.createElement('option', { value: '' }, 'Select Class'),
-                classes.map((cls) =>
-                  React.createElement('option', { key: cls._id, value: cls._id }, cls.name)
-                )
-              )
-            ),
+        {error && (
+          <div style={{ color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null,
-                'Section',
-                React.createElement(Required, null, '*')
-              ),
-              React.createElement(Select, {
-                name: 'section',
-                value: formData.section,
-                onChange: handleChange,
-                required: true,
-                disabled: !formData.classId
-              },
-                React.createElement('option', { value: '' }, 'Select Section'),
-                filteredSections.map((section) =>
-                  React.createElement('option', { key: section, value: section }, section)
-                )
-              )
-            ),
+        {fetchError && (
+          <div style={{ color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }}>
+            {fetchError}
+            <RetryButton onClick={handleRetryFetch}>Retry Fetching Student Data</RetryButton>
+          </div>
+        )}
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null,
-                'Student',
-                React.createElement(Required, null, '*')
-              ),
-              React.createElement(Select, {
-                name: 'studentId',
-                value: formData.studentId,
-                onChange: handleChange,
-                required: true,
-                disabled: !formData.section
-              },
-                React.createElement('option', { value: '' }, 'Select Student'),
-                filteredStudents.length === 0 && formData.section
-                  ? React.createElement('option', { value: '', disabled: true }, 'No students found')
-                  : filteredStudents.map((student) =>
-                      React.createElement('option', { key: student._id, value: student._id }, student.name)
-                    )
-              )
-            )
-          ),
+        <form onSubmit={handleSubmit}>
+          <FormGrid>
+            <InputGroup>
+              <Label>
+                Class
+                <Required>*</Required>
+              </Label>
+              <Select
+                name="classId"
+                value={formData.classId}
+                onChange={handleChange}
+                required
+                disabled={!!fetchError}
+              >
+                <option value="">Select Class</option>
+                {classes.map((cls: any) => (
+                  <option key={cls._id} value={cls._id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </Select>
+            </InputGroup>
 
-          React.createElement(FormGrid, null,
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null,
-                'Total Fees',
-                React.createElement(Required, null, '*')
-              ),
-              React.createElement('div', { style: { position: 'relative' } },
-                React.createElement(Input, {
-                  type: 'number',
-                  name: 'totalFees',
-                  value: formData.totalFees,
-                  onChange: handleChange,
-                  required: true,
-                  placeholder: '0.00'
-                }),
-                React.createElement('span', {
-                  style: {
+            <InputGroup>
+              <Label>
+                Section
+                <Required>*</Required>
+              </Label>
+              <Select
+                name="section"
+                value={formData.section}
+                onChange={handleChange}
+                required
+                disabled={!formData.classId || !!fetchError}
+              >
+                <option value="">Select Section</option>
+                {filteredSections.map((section: string) => (
+                  <option key={section} value={section}>
+                    {section}
+                  </option>
+                ))}
+              </Select>
+            </InputGroup>
+
+            <InputGroup>
+              <Label>
+                Student
+                <Required>*</Required>
+              </Label>
+              <Select
+                name="studentId"
+                value={formData.studentId}
+                onChange={handleChange}
+                required
+                disabled={!formData.section || !!fetchError}
+              >
+                <option value="">Select Student</option>
+                {filteredStudents.length === 0 && formData.section ? (
+                  <option value="" disabled>
+                    No students found
+                  </option>
+                ) : (
+                  filteredStudents.map((form: any) => (
+                    <option key={form._id} value={form._id}>
+                      {`${form.firstName} ${form.lastName || ''}`}
+                    </option>
+                  ))
+                )}
+              </Select>
+            </InputGroup>
+          </FormGrid>
+
+          <FormGrid>
+            <InputGroup>
+              <Label>
+                Total Fees
+                <Required>*</Required>
+              </Label>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  type="number"
+                  name="totalFees"
+                  value={formData.totalFees}
+                  onChange={handleChange}
+                  required
+                  placeholder="0.00"
+                  min="0.01"
+                  step="0.01"
+                  disabled={!!fetchError}
+                />
+                <span
+                  style={{
                     position: 'absolute',
                     right: '1rem',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#6b7280',
-                    fontSize: '0.875rem'
-                  }
-                }, '₹')
-              )
-            ),
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  ₹
+                </span>
+              </div>
+            </InputGroup>
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null, '1st Installment'),
-              React.createElement(Input, {
-                type: 'number',
-                name: 'firstInstallment',
-                value: formData.firstInstallment,
-                onChange: handleChange,
-                placeholder: '0.00'
-              })
-            ),
+            <InputGroup>
+              <Label>1st Installment</Label>
+              <Input
+                type="number"
+                name="firstInstallment"
+                value={formData.firstInstallment}
+                onChange={handleChange}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                disabled={!!fetchError}
+              />
+            </InputGroup>
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null,
-                'Balance Fees',
-                React.createElement(Required, null, '*')
-              ),
-              React.createElement(Input, {
-                type: 'number',
-                name: 'balanceFees',
-                value: formData.balanceFees,
-                onChange: handleChange,
-                required: true,
-                placeholder: '0.00'
-              })
-            ),
+            <InputGroup>
+              <Label>
+                Balance Fees
+                <Required>*</Required>
+              </Label>
+              <Input
+                type="number"
+                name="balanceFees"
+                value={formData.balanceFees}
+                onChange={handleChange}
+                required
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                disabled={!!fetchError}
+              />
+            </InputGroup>
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null, 'Installments'),
-              React.createElement(Select, {
-                name: 'installments',
-                value: formData.installments,
-                onChange: handleChange
-              },
-                [1, 2, 3, 4, 5, 6].map((num) =>
-                  React.createElement('option', { key: num, value: num }, num)
-                )
-              )
-            )
-          ),
+            <InputGroup>
+              <Label>Installments</Label>
+              <Select
+                name="installments"
+                value={formData.installments}
+                onChange={handleChange}
+                disabled={!!fetchError}
+              >
+                {[1, 2, 3, 4, 5, 6].map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </Select>
+            </InputGroup>
+          </FormGrid>
 
-          React.createElement(FormGrid, null,
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null, 'Due Date Day'),
-              React.createElement('div', { style: { position: 'relative' } },
-                React.createElement(Input, {
-                  type: 'number',
-                  name: 'dueDateDay',
-                  value: formData.dueDateDay,
-                  onChange: handleChange,
-                  min: '1',
-                  max: '31'
-                }),
-                React.createElement('span', {
-                  style: {
+          <FormGrid>
+            <InputGroup>
+              <Label>Due Date Day</Label>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  type="number"
+                  name="dueDateDay"
+                  value={formData.dueDateDay}
+                  onChange={handleChange}
+                  min="1"
+                  max="31"
+                  required
+                  disabled={!!fetchError}
+                />
+                <span
+                  style={{
                     position: 'absolute',
                     right: '1rem',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#6b7280',
-                    fontSize: '0.875rem'
-                  }
-                }, '📅')
-              )
-            ),
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  📅
+                </span>
+              </div>
+            </InputGroup>
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null, 'Fine Type'),
-              React.createElement(Select, {
-                name: 'fineType',
-                value: formData.fineType,
-                onChange: handleChange
-              },
-                React.createElement('option', { value: 'Fix Amount' }, 'Fix Amount'),
-                React.createElement('option', { value: 'Percentage' }, 'Percentage')
-              )
-            ),
+            <InputGroup>
+              <Label>Fine Type</Label>
+              <Select
+                name="fineType"
+                value={formData.fineType}
+                onChange={handleChange}
+                disabled={!!fetchError}
+              >
+                <option value="Fix Amount">Fix Amount</option>
+                <option value="Percentage">Percentage</option>
+              </Select>
+            </InputGroup>
 
-            React.createElement(InputGroup, null,
-              React.createElement(Label, null, 'Fine Value'),
-              React.createElement(Input, {
-                type: 'number',
-                name: 'fineValue',
-                value: formData.fineValue,
-                onChange: handleChange,
-                placeholder: formData.fineType === 'Percentage' ? '%' : '₹'
-              })
-            )
-          ),
+            <InputGroup>
+              <Label>Fine Value</Label>
+              <Input
+                type="number"
+                name="fineValue"
+                value={formData.fineValue}
+                onChange={handleChange}
+                placeholder={formData.fineType === 'Percentage' ? '%' : '₹'}
+                min="0"
+                step="0.01"
+                disabled={!!fetchError}
+              />
+            </InputGroup>
+          </FormGrid>
 
-          React.createElement(Button, { type: 'submit', disabled: loading },
-            loading
-              ? 'Generating...'
-              : React.createElement(React.Fragment, null,
-                  React.createElement(Icon, {
-                    fill: 'none',
-                    stroke: 'currentColor',
-                    viewBox: '0 0 24 24'
-                  },
-                    React.createElement('path', {
-                      strokeLinecap: 'round',
-                      strokeLinejoin: 'round',
-                      strokeWidth: '2',
-                      d: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                    })
-                  ),
-                  'Generate Installment Plan'
-                )
-          )
-        )
-      )
-    )
+          <Button type="submit" disabled={loading || !isFormValid()}>
+            {loading ? (
+              'Generating...'
+            ) : (
+              <>
+                <Icon fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </Icon>
+                Generate Installment Plan
+              </>
+            )}
+          </Button>
+        </form>
+      </Container>
+    </>
   );
 };
 
-module.exports = QuickFeesMaster;
+export default QuickFeesMaster;

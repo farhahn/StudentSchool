@@ -1,299 +1,465 @@
-import React, { useState } from 'react';
+// src/pages/admin/inventory/ItemList.tsx
+import React, { useState, useEffect } from 'react';
+import {
+  Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, IconButton, Snackbar, Alert, Grid, Card, CardContent, InputAdornment, Dialog, DialogTitle,
+  DialogContent, DialogActions, Autocomplete, Button
+} from '@mui/material';
+import { Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Print as PrintIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import { CSVLink } from 'react-csv';
+import {
+  getAllCategoryCards,
+} from '../../../redux/categoryRelated/categoryHandle';
+import {
+  getAllItems,
+  createItem,
+  updateItem,
+  deleteItem,
+  clearItemError,
+} from '../../../redux/itemRelated/itemHandle';
 
-const ItemList = () => {
-  const [items, setItems] = useState([
-    { id: 1, item: 'Cricket Bat', description: '', category: 'Sports', unit: 'Piece', availableQuantity: 142 },
-    { id: 2, item: 'Uniform', description: '', category: 'Staff Dress', unit: 'Piece', availableQuantity: -3 },
-    { id: 3, item: 'Table chair', description: '', category: 'Furniture', unit: 'Piece', availableQuantity: 115 },
-    { id: 4, item: 'Staff Uniform', description: '', category: 'Staff Dress', unit: 'Piece', availableQuantity: 49 },
-    { id: 5, item: 'Benches', description: '', category: 'Furniture', unit: 'Piece', availableQuantity: 25 },
-    { id: 6, item: 'Football', description: '', category: 'Sports', unit: 'Piece', availableQuantity: 34 },
-    { id: 7, item: 'Class Board', description: '', category: 'Books Stationery', unit: 'Piece', availableQuantity: 15 },
-    { id: 8, item: 'Desk', description: '', category: 'Furniture', unit: 'Piece', availableQuantity: -1 },
-    { id: 9, item: 'Lab Equipment', description: '', category: 'Chemistry Lab Apparatus', unit: 'Piece', availableQuantity: 44 },
-    { id: 10, item: 'Notebooks', description: '', category: 'Books Stationery', unit: 'Piece', availableQuantity: 122 },
-    { id: 11, item: 'Projectors', description: '', category: 'Chemistry Lab Apparatus', unit: 'Piece', availableQuantity: 74 },
-    { id: 12, item: 'Paper and Pencils', description: '', category: 'Books Stationery', unit: 'Piece', availableQuantity: 85 },
-  ]);
+interface Item {
+  _id: string;
+  item: string;
+  description: string;
+  category: string;
+  unit: string;
+  availableQuantity: number;
+}
 
+interface RootState {
+  item: {
+    itemsList: Item[];
+    loading: boolean;
+    error: string | null;
+  };
+  user: {
+    currentUser: { _id: string } | null;
+  };
+  categoryCard: {
+    categoryCardsList: any[];
+    categoryCardDetails: any;
+    loading: boolean;
+    error: string | null;
+    response: any;
+  };
+}
+
+const ItemList: React.FC = () => {
+  const dispatch = useDispatch();
+  const { itemsList, loading, error } = useSelector((state: RootState) => state.item || { itemsList: [], loading: false, error: null });
+  const { categoryCardsList = [], loading: categoryLoading } = useSelector((state: RootState) => state.categoryCard || { categoryCardsList: [], loading: false });
+  const adminID = useSelector((state: RootState) => state.user?.currentUser?._id);
+  const [items, setItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newItem, setNewItem] = useState({
-    id: null,
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [categoryInput, setCategoryInput] = useState('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [newItem, setNewItem] = useState<Omit<Item, '_id'>>({
     item: '',
-    category: 'Select',
-    unit: 'Select',
     description: '',
-    availableQuantity: '',
+    category: '',
+    unit: '',
+    availableQuantity: 0,
   });
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
+  const [hasFetched, setHasFetched] = useState(false); // Prevent redundant API calls
 
-  const [categories] = useState(['Select', 'Sports', 'Staff Dress', 'Furniture', 'Books Stationery', 'Chemistry Lab Apparatus']);
-  const [units] = useState(['Select', 'Piece', 'Set', 'Box']);
-  const [isEditing, setIsEditing] = useState(false);
+  const units = ['Piece', 'Set', 'Box'];
 
-  const handleInputChange = (e) => {
+  useEffect(() => {
+    console.log('adminID:', adminID);
+    console.log('categoryCardsList:', categoryCardsList);
+    console.log('categoryLoading:', categoryLoading);
+    if (adminID && !hasFetched) {
+      dispatch(getAllCategoryCards(adminID));
+      dispatch(getAllItems(adminID));
+      setHasFetched(true);
+    } else if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to view items', severity: 'error' });
+    }
+  }, [dispatch, adminID, hasFetched]);
+
+  useEffect(() => {
+    console.log('itemsList updated:', itemsList);
+    if (Array.isArray(itemsList)) {
+      setItems(itemsList);
+    } else {
+      console.warn('itemsList is not an array:', itemsList);
+      setItems([]);
+    }
+  }, [itemsList]);
+
+  useEffect(() => {
+    if (error) {
+      setSnack({ open: true, message: error, severity: 'error' });
+      dispatch(clearItemError());
+    }
+  }, [error, dispatch]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setNewItem({ ...newItem, [name]: value });
+    setNewItem((prev) => ({ ...prev, [name]: name === 'availableQuantity' ? parseInt(value) || 0 : value }));
+  };
+
+  const handleAdd = () => {
+    setNewItem({ item: '', description: '', category: '', unit: '', availableQuantity: 0 });
+    setEditId(null);
+    setIsPopupOpen(true);
+  };
+
+  const handleEdit = (item: Item) => {
+    if (!Array.isArray(items)) {
+      setSnack({ open: true, message: 'Items data not loaded yet. Please try again.', severity: 'error' });
+      return;
+    }
+    setEditId(item._id);
+    setNewItem({ item: item.item, description: item.description, category: item.category, unit: item.unit, availableQuantity: item.availableQuantity });
+    setIsPopupOpen(true);
   };
 
   const handleSave = () => {
-    if (newItem.item && newItem.category !== 'Select' && newItem.unit !== 'Select' && newItem.availableQuantity) {
-      if (isEditing) {
-        setItems(items.map(item =>
-          item.id === newItem.id ? { ...newItem, availableQuantity: parseInt(newItem.availableQuantity) } : item
-        ));
-        setIsEditing(false);
-      } else {
-        setItems([...items, { ...newItem, id: Date.now(), availableQuantity: parseInt(newItem.availableQuantity) }]);
-      }
-      setNewItem({ id: null, item: '', category: 'Select', unit: 'Select', description: '', availableQuantity: '' });
-    } else {
-      alert('Please fill all required fields (*).');
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to add items', severity: 'error' });
+      return;
+    }
+    if (!newItem.item || !newItem.category || !newItem.unit || newItem.availableQuantity === 0) {
+      setSnack({ open: true, message: 'Item, category, unit, and available quantity are required', severity: 'warning' });
+      return;
+    }
+    dispatch(createItem(newItem, adminID))
+      .then(() => {
+        setSnack({ open: true, message: 'Item added successfully', severity: 'success' });
+        setIsPopupOpen(false);
+        setNewItem({ item: '', description: '', category: '', unit: '', availableQuantity: 0 });
+      })
+      .catch((err) => {
+        setSnack({ open: true, message: err.message || 'Failed to add item', severity: 'error' });
+      });
+  };
+
+  const handleSaveEdit = () => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to update items', severity: 'error' });
+      return;
+    }
+    if (!newItem.item || !newItem.category || !newItem.unit || newItem.availableQuantity === 0) {
+      setSnack({ open: true, message: 'Item, category, unit, and available quantity are required', severity: 'warning' });
+      return;
+    }
+    dispatch(updateItem(editId!, newItem, adminID))
+      .then(() => {
+        setSnack({ open: true, message: 'Item updated successfully', severity: 'success' });
+        setIsPopupOpen(false);
+        setEditId(null);
+        setNewItem({ item: '', description: '', category: '', unit: '', availableQuantity: 0 });
+      })
+      .catch((err) => {
+        setSnack({ open: true, message: err.message || 'Failed to update item', severity: 'error' });
+      });
+  };
+
+  const handleDelete = (id: string) => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to delete items', severity: 'error' });
+      return;
+    }
+    if (window.confirm(`Delete item ${id}?`)) {
+      dispatch(deleteItem(id, adminID))
+        .then(() => {
+          setSnack({ open: true, message: `Item ${id} deleted successfully`, severity: 'info' });
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to delete item', severity: 'error' });
+        });
     }
   };
 
-  const handleEdit = (id) => {
-    const itemToEdit = items.find(item => item.id === id);
-    if (itemToEdit) {
-      setNewItem({ ...itemToEdit });
-      setIsEditing(true);
-    }
+  const handlePrint = () => {
+    window.print();
+    setSnack({ open: true, message: 'Printing items', severity: 'info' });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm(`Are you sure you want to delete item with ID: ${id}?`)) {
-      setItems(items.filter(item => item.id !== id));
-    }
+  const handleExport = () => {
+    setSnack({ open: true, message: 'Exporting items as CSV', severity: 'info' });
   };
+
+  const filteredItems = items.filter((item) =>
+    item.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const csvData = filteredItems.map((item) => ({
+    Item: item.item,
+    Description: item.description,
+    Category: item.category,
+    Unit: item.unit,
+    AvailableQuantity: item.availableQuantity,
+  }));
 
   return (
-    <div className="item-container">
-      <div className="item-header">
-        <div className="add-form">
-          <h2>Add Item</h2>
-          <div className="form-group">
-            <label>Item *</label>
-            <input type="text" name="item" value={newItem.item} onChange={handleInputChange} className="form-input" />
-          </div>
-          <div className="form-group">
-            <label>Item Category *</label>
-            <select name="category" value={newItem.category} onChange={handleInputChange} className="form-input">
-              {categories.map((cat, index) => (
-                <option key={index} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Unit *</label>
-            <select name="unit" value={newItem.unit} onChange={handleInputChange} className="form-input">
-              {units.map((unit, index) => (
-                <option key={index} value={unit}>{unit}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Description</label>
-            <input type="text" name="description" value={newItem.description} onChange={handleInputChange} className="form-input" />
-          </div>
-          <button className="save-btn" onClick={handleSave}>
-            {isEditing ? 'Update' : 'Save'}
-          </button>
-        </div>
-        <div className="item-list">
-          <h2>Item List</h2>
-          <div className="search-bar">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-            <div className="icons">
-              <span role="img" aria-label="export">📤</span>
-              <span role="img" aria-label="print">🖨️</span>
-              <span role="img" aria-label="close">❌</span>
-            </div>
-          </div>
-          <table className="item-table">
-            <thead>
-              <tr>
-                {['Item', 'Description', 'Item Category', 'Unit', 'Available Quantity', 'Action'].map(header => (
-                  <th key={header}>{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {items
-                .filter(item =>
-                  item.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  item.category.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map(item => (
-                  <tr key={item.id} className="table-row">
-                    <td>{item.item}</td>
-                    <td>{item.description}</td>
-                    <td>{item.category}</td>
-                    <td>{item.unit}</td>
-                    <td>{item.availableQuantity}</td>
-                    <td>
-                      <button className="action-btn edit-btn" onClick={() => handleEdit(item.id)}>
-                        <span role="img" aria-label="edit">✏️</span>
-                      </button>
-                      <button className="action-btn delete-btn" onClick={() => handleDelete(item.id)}>
-                        <span role="img" aria-label="delete">❌</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          <div className="pagination">Records: 1 to {items.length} of {items.length}</div>
-        </div>
-      </div>
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          fontWeight: 700,
+          color: '#1a2526',
+          mb: 4,
+          fontSize: { xs: '1.5rem', md: '2.125rem' },
+        }}
+      >
+        Item Management
+      </Typography>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526' }}>
+                  Item List
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <CSVLink
+                    data={csvData}
+                    filename="items.csv"
+                    style={{ textDecoration: 'none' }}
+                    onClick={handleExport}
+                  >
+                    <IconButton sx={{ color: '#666' }} title="Export">
+                      <DownloadIcon />
+                    </IconButton>
+                  </CSVLink>
+                  <IconButton sx={{ color: '#666' }} onClick={handlePrint} title="Print">
+                    <PrintIcon />
+                  </IconButton>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={handleAdd}
+                    sx={{ borderRadius: '20px', textTransform: 'none' }}
+                    disabled={loading || categoryLoading}
+                  >
+                    + Add
+                  </Button>
+                </Box>
+              </Box>
+              <TextField
+                fullWidth
+                label="Search items"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                variant="outlined"
+                size="small"
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#1a2526' }}>
+                      {['Item', 'Description', 'Category', 'Unit', 'Available Quantity', 'Action'].map((header) => (
+                        <TableCell
+                          key={header}
+                          sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}
+                        >
+                          {header}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ textAlign: 'center' }}>
+                          Loading...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ textAlign: 'center', p: 4, color: '#666' }}>
+                          No items found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredItems.map((item, idx) => (
+                        <TableRow
+                          key={item._id}
+                          sx={{
+                            bgcolor: idx % 2 ? '#fff' : '#f9f9f9',
+                            '&:hover': { bgcolor: '#e0f7fa' },
+                          }}
+                        >
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {item.item}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {item.description}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {item.category}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {item.unit}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {item.availableQuantity}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 } }}>
+                            <IconButton
+                              onClick={() => handleEdit(item)}
+                              sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}
+                              title="Edit"
+                              disabled={loading || categoryLoading}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => handleDelete(item._id)}
+                              sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}
+                              title="Delete"
+                              disabled={loading}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Typography sx={{ mt: 2, color: '#1a2526' }}>
+                Records: {filteredItems.length} of {itemsList.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Dialog open={isPopupOpen} onClose={() => setIsPopupOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editId ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Item"
+            name="item"
+            value={newItem.item}
+            onChange={handleInputChange}
+            variant="outlined"
+            size="small"
+            sx={{ mb: 2, mt: 1 }}
+            required
+          />
+          <Autocomplete
+            options={Array.isArray(categoryCardsList) ? categoryCardsList : []}
+            getOptionLabel={(option: any) => option.categoryCard || ''}
+            inputValue={categoryInput}
+            onInputChange={(_, newInputValue) => setCategoryInput(newInputValue)}
+            value={Array.isArray(categoryCardsList) ? categoryCardsList.find((cat: any) => cat.categoryCard === newItem.category) || null : null}
+            onChange={(_, newValue) => setNewItem((prev) => ({ ...prev, category: newValue ? newValue.categoryCard : '' }))}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Category"
+                variant="outlined"
+                size="small"
+                sx={{ mb: 2 }}
+                required
+                InputProps={{ ...params.InputProps, style: { fontSize: 14 } }}
+              />
+            )}
+            disabled={categoryLoading}
+          />
+          <Autocomplete
+            options={units}
+            value={newItem.unit || null}
+            onChange={(_, newValue) => setNewItem((prev) => ({ ...prev, unit: newValue || '' }))}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Unit"
+                variant="outlined"
+                size="small"
+                sx={{ mb: 2 }}
+                required
+              />
+            )}
+          />
+          <TextField
+            fullWidth
+            label="Description"
+            name="description"
+            value={newItem.description}
+            onChange={handleInputChange}
+            variant="outlined"
+            size="small"
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Available Quantity"
+            name="availableQuantity"
+            type="number"
+            value={newItem.availableQuantity}
+            onChange={handleInputChange}
+            variant="outlined"
+            size="small"
+            sx={{ mb: 2 }}
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsPopupOpen(false)} color="error">Cancel</Button>
+          <Button onClick={editId ? handleSaveEdit : handleSave} color="success" disabled={categoryLoading}>
+            {editId ? 'Update' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
 
       <style>{`
         .item-container {
           padding: 20px;
           font-family: 'Segoe UI', sans-serif;
-          font-size: 14px; /* Small font size */
+          font-size: 14px;
           min-height: 100vh;
-          width: 100vw;
-          background-color: #f5f5f5;
-          overflow-x: hidden;
-        }
-
-        .item-header {
-          display: flex;
-          gap: 20px;
-        }
-
-        h2 {
-          margin: 0 0 15px 0;
-          color: #333;
-        }
-
-        .add-form, .item-list {
-          background-color: #fff;
-          padding: 15px;
-          border-radius: 5px;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-group {
-          margin-bottom: 10px;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 5px;
-          color: #555;
-        }
-
-        .form-input {
           width: 100%;
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 14px;
+          background-color: #f4f6f8;
+          overflow-x: auto;
         }
-
-        .save-btn {
-          padding: 10px 20px;
-          background-color: #757575;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .save-btn:hover {
-          background-color: #616161;
-        }
-
-        .search-bar {
+        .header {
           display: flex;
           justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+        .search-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
           margin-bottom: 15px;
         }
-
-        .search-input {
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 14px;
-        }
-
-        .icons span {
-          font-size: 18px;
-          margin-left: 10px;
-          cursor: pointer;
-        }
-
-        .item-table {
-          width: 100%;
-          border-collapse: collapse;
-          background-color: #fff;
-          border-radius: 5px;
-          overflow: hidden;
-        }
-
-        .item-table th, .item-table td {
-          padding: 10px;
-          text-align: left;
-          border-bottom: 1px solid #ddd;
-        }
-
-        .item-table th {
-          background-color: #757575;
-          color: white;
-        }
-
-        .table-row:hover {
-          background-color: #f0f0f0;
-        }
-
-        .action-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 16px;
-          margin-right: 8px;
-          transition: transform 0.2s;
-        }
-
-        .edit-btn {
-          color: #388e3c;
-        }
-
-        .delete-btn {
-          color: #d32f2f;
-        }
-
-        .action-btn:hover {
-          transform: scale(1.2);
-        }
-
-        .pagination {
-          text-align: right;
-          margin-top: 10px;
-          color: #555;
-        }
-
-        @media (max-width: 768px) {
-          .item-header {
-            flex-direction: column;
-          }
-          .item-table th, .item-table td {
-            font-size: 12px;
-            padding: 6px;
-          }
-          .form-input {
-            font-size: 12px;
-          }
-        }
       `}</style>
-    </div>
+    </Box>
   );
 };
 

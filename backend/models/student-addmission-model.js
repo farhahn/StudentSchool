@@ -4,7 +4,7 @@ const admissionFormSchema = new mongoose.Schema(
   {
     admissionNo: { type: String, required: true, unique: true },
     rollNo: { type: String, default: '' },
-    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'lass', required: true },
+    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
     section: { type: String, required: true },
     firstName: { type: String, required: true },
     lastName: { type: String, default: '' },

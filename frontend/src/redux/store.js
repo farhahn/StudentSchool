@@ -33,8 +33,22 @@ import reasonReducer from './StudentAddmissionDetail/reasonSlice.js';
 import disabledStudentReducer from './StudentAddmissionDetail/disabledStudentSlice.js';
 import teacherFormReducer from './TeacherAllRelated/formSlice.js';
 import teacherManageReducer from './TeacherAllRelated/teacherManageSlice';
+import feeBalanceReducer from './feeRelated/feeBalanceSlice.js';
+import discountReducer from './feeRelated/discountSlice.js';
+import reminderReducer from './feeRelated/reminderSlice.js';
+import storeSlice from './storeItemRelated/storeSlice.js';
+import supplierSlice from './supplierRelated/supplierSlice.js';
+import categoryCardSlice from './categoryRelated/categorySlice.js';
+ // jo upar banaya tha
+       
+import stockItemReducer from './itemStockRelated/itemStockSlice.js';
+import itemReducer from './itemRelated/itemSlice';
 
+import divisionSlice from './divisionRelated/divisionSlice.js';
 
+import markGradeSlice from './markGradeRelated/markGradeSlice.js';
+
+import issueItemReducer from './IssueItemStock/IssueItemSlice.js';
 
 
 
@@ -76,6 +90,18 @@ const store = configureStore({
              disabledStudent: disabledStudentReducer,
              teacherForm: teacherFormReducer,
             teacherManage: teacherManageReducer,
+            feeBalances: feeBalanceReducer,
+            discounts: discountReducer,
+            reminders: reminderReducer,
+             store: storeSlice,
+                supplier:supplierSlice,
+               categoryCard: categoryCardSlice,
+               item: itemReducer,
+               stockItem: stockItemReducer,
+                // issueitemstock: issueItemStockReducer  ,
+                division :divisionSlice,
+                markGrade :markGradeSlice,
+                issueItem: issueItemReducer,
         // librarians: librariansReducer, // ✅ Key should match useSelector()
     },
 });

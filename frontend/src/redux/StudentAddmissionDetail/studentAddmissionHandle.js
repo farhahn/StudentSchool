@@ -352,11 +352,13 @@ export const generateInstallmentPlan = (data) => async (dispatch) => {
   dispatch(getRequest());
   try {
     const payload = { ...data };
-    await api.post('/quick-fees-master', payload);
+    console.log('Generating installment plan with payload:', payload);
+    const response = await api.post('/quick-fees-master', payload);
+    console.log('Response from quick-fees-master:', response.data);
     dispatch(stuffDone());
-    return Promise.resolve();
+    return Promise.resolve(response.data);
   } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message;
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to generate installment plan';
     console.error('Error generating installment plan:', errorMessage, error.stack);
     dispatch(getError(errorMessage));
     return Promise.reject(errorMessage);
