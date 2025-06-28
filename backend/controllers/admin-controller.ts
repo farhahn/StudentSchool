@@ -3,7 +3,7 @@ const Admin = require('../models/adminSchema.ts');
 const Sclass = require('../models/sclassSchema.ts');
 const Student = require('../models/studentSchema.ts');
 // const Teacher = require('../models/teacherSchema.ts');
-const Subject = require('../models/subjectSchema.ts');
+const Subject = require('../models/subjectSchema.js');
 const Notice = require('../models/noticeSchema.ts');
 const Complain = require('../models/complainSchema.ts');
 

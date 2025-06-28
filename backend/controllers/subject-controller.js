@@ -3,7 +3,7 @@
 // const Subject = require('../models/subject-model.ts');
 
 // Schema
-const Subject = require('../models/subjectSchema.ts');
+const Subject = require('../models/subjectSchema');
 
 // Create Subject
 exports.createSubject = async (req, res) => {

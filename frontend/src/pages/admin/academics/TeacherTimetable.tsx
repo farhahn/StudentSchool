@@ -1,84 +1,197 @@
-import React, { useState } from 'react';
+// components/TeacherTimetable.tsx
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { Button, Select, MenuItem, FormControl, InputLabel, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { getTeacherTimetable, addAttendance, addTimetable, clearTimetableError } from '../../../redux/Timetable/timetableSlice';
+import { fetchTeachers } from '../../../redux/TeacherAllRelated/teacherManageActions';
+import { RootState } from '../../../redux/store';
 
-const TeacherTimetable = () => {
-  // Sample teacher data with their schedules
-  const teachersData = {
-    "Shivam Verma (9002)": {
-      Monday: [
-        { class: "Class 1(A)", subject: "English (210)", time: "9:00 AM - 09:40 AM", room: "120" },
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:15 AM", room: "115" },
-        { class: "Class 4(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "110" },
-        { class: "Class 2(C)", subject: "Science (111)", time: "10:00 AM - 10:40 AM", room: "102" },
-        { class: "Class 4(B)", subject: "English (210)", time: "10:00 AM - 10:40 AM", room: "115" },
-      ],
-      Tuesday: [
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:15 AM", room: "115" },
-        { class: "Class 2(B)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "120" },
-        { class: "Class 4(B)", subject: "English (210)", time: "10:00 AM - 10:40 AM", room: "115" },
-        { class: "Class 2(A)", subject: "Science (111)", time: "10:10 AM - 10:50 AM", room: "125G" },
-      ],
-      Wednesday: [
-        { class: "Class 1(A)", subject: "Hindi (230)", time: "9:00 AM - 09:40 AM", room: "110" },
-        { class: "Class 2(A)", subject: "Science (111)", time: "9:30 AM - 10:10 AM", room: "125G" },
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "115" },
-        { class: "Class 4(A)", subject: "Mathematics (110)", time: "9:30 AM - 10:10 AM", room: "110" },
-        { class: "Class 2(B)", subject: "Hindi (230)", time: "9:30 AM - 10:10 AM", room: "125G" },
-      ],
-      Thursday: [
-        { class: "Class 4(B)", subject: "Science (111)", time: "12:00 PM - 12:40 PM", room: "115" },
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "115" },
-        { class: "Class 2(B)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "120" },
-        { class: "Class 4(A)", subject: "Mathematics (110)", time: "9:30 AM - 10:10 AM", room: "110" },
-      ],
-      Friday: [
-        { class: "Class 1(A)", subject: "Hindi (230)", time: "9:00 AM - 09:40 AM", room: "110" },
-        { class: "Class 2(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "125G" },
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "115" },
-        { class: "Class 1(A)", subject: "English (210)", time: "9:40 AM - 10:20 AM", room: "110" },
-        { class: "Class 4(B)", subject: "Hindi (230)", time: "9:30 AM - 10:10 AM", room: "110" },
-      ],
-      Saturday: [
-        { class: "Class 2(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "125G" },
-        { class: "Class 3(A)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "115" },
-        { class: "Class 1(A)", subject: "Mathematics (110)", time: "9:40 AM - 10:20 AM", room: "110" },
-        { class: "Class 2(B)", subject: "English (210)", time: "9:30 AM - 10:10 AM", room: "120" },
-        { class: "Class 4(B)", subject: "Hindi (230)", time: "9:30 AM - 10:10 AM", room: "110" },
-      ],
-      Sunday: [],
-    },
-    "Amit Sharma (9003)": {
-      Monday: [],
-      Tuesday: [],
-      Wednesday: [],
-      Thursday: [],
-      Friday: [],
-      Saturday: [],
-      Sunday: [],
-    },
+interface TimetableForm {
+  className: string;
+  section: string;
+  subject: string;
+  day: string;
+  time: string;
+  room: string;
+}
+
+interface Teacher {
+  _id: string;
+  fullName: string;
+  teacherId: string;
+}
+
+interface TimetableEntry {
+  class: string;
+  section: string;
+  subject: string;
+  time: string;
+  room: string;
+  _id: string;
+}
+
+const TeacherTimetable: React.FC = () => {
+  const dispatch = useDispatch();
+  const { teachers, loading: teacherLoading, error: teacherError } = useSelector((state: RootState) => state.teacherManage || { teachers: [], loading: false, error: null });
+  const { timetable, loading: timetableLoading, error: timetableError } = useSelector((state: RootState) => state.timetable || { timetable: {}, loading: false, error: null });
+  const { currentUser } = useSelector((state: RootState) => state.user || { currentUser: null });
+  const adminID = currentUser?._id;
+
+  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [showTimetable, setShowTimetable] = useState<boolean>(false);
+  const [attendanceStatus, setAttendanceStatus] = useState<{ [key: string]: string }>({});
+  const [attendanceDate, setAttendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [openAddForm, setOpenAddForm] = useState<boolean>(false);
+  const [timetableForm, setTimetableForm] = useState<TimetableForm>({
+    className: '',
+    section: '',
+    subject: '',
+    day: '',
+    time: '',
+    room: '',
+  });
+
+  const days: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  useEffect(() => {
+    console.log('Current user:', currentUser);
+    console.log('adminID:', adminID);
+    if (adminID) {
+      console.log('Fetching teachers with adminID:', adminID);
+      dispatch(fetchTeachers(adminID));
+    } else {
+      toast.error('Please log in to view teachers', { position: 'top-right', autoClose: 3000 });
+    }
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    console.log('Teachers:', teachers);
+    if (timetableError) {
+      toast.error(timetableError, { position: 'top-right', autoClose: 3000 });
+      dispatch(clearTimetableError());
+    }
+    if (teacherError) {
+      toast.error(`Failed to load teachers: ${teacherError}`, { position: 'top-right', autoClose: 3000 });
+    }
+  }, [timetableError, teacherError, teachers, dispatch]);
+
+  const handleTeacherChange = (e: React.ChangeEvent<{ value: unknown }>) => {
+    setSelectedTeacher(e.target.value as string);
+    setShowTimetable(false);
+    setAttendanceStatus({});
+    console.log('Selected teacher:', e.target.value);
   };
 
-  // State for selected teacher and whether to show the timetable
-  const [selectedTeacher, setSelectedTeacher] = useState("");
-  const [showTimetable, setShowTimetable] = useState(false);
-
-  // Handle teacher selection
-  const handleTeacherChange = (e) => {
-    setSelectedTeacher(e.target.value);
-    setShowTimetable(false); // Hide timetable when teacher changes
-  };
-
-  // Handle search button click
   const handleSearch = () => {
-    if (selectedTeacher) {
+    if (selectedTeacher && adminID) {
+      console.log('Searching timetable for adminID:', adminID, 'teacherId:', selectedTeacher);
+      dispatch(getTeacherTimetable({ adminID, teacherId: selectedTeacher }));
       setShowTimetable(true);
+    } else {
+      toast.error('Please select a teacher and ensure you are logged in', { position: 'top-right', autoClose: 3000 });
     }
   };
 
-  // Days of the week
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const handleAttendanceChange = (timetableId: string, status: string) => {
+    setAttendanceStatus((prev) => ({ ...prev, [timetableId]: status }));
+  };
+
+  const handleAddAttendance = (timetableId: string) => {
+    if (!adminID) {
+      toast.error('Please log in to add attendance', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    const status = attendanceStatus[timetableId];
+    if (!status) {
+      toast.error('Please select an attendance status', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    dispatch(addAttendance({ adminID, timetableId, date: attendanceDate, status }))
+      .unwrap()
+      .then(() => {
+        toast.success('Attendance added successfully', { position: 'top-right', autoClose: 3000 });
+        setAttendanceStatus((prev) => ({ ...prev, [timetableId]: '' }));
+      })
+      .catch(() => {
+        toast.error('Failed to add attendance', { position: 'top-right', autoClose: 3000 });
+      });
+  };
+
+  const handleOpenAddForm = () => {
+    if (!selectedTeacher) {
+      toast.error('Please select a teacher first', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    setOpenAddForm(true);
+  };
+
+  const handleCloseAddForm = () => {
+    setOpenAddForm(false);
+    setTimetableForm({
+      className: '',
+      section: '',
+      subject: '',
+      day: '',
+      time: '',
+      room: '',
+    });
+  };
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    if (name) {
+      setTimetableForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleAddTimetable = () => {
+    if (!adminID || !selectedTeacher) {
+      toast.error('Please log in and select a teacher', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    const { className, section, subject, day, time, room } = timetableForm;
+    if (!className || !section || !subject || !day || !time || !room) {
+      toast.error('All fields are required', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    dispatch(addTimetable({
+      adminID,
+      teacherId: selectedTeacher,
+      className,
+      section,
+      subject,
+      day,
+      time,
+      room,
+    }))
+      .unwrap()
+      .then(() => {
+        toast.success('Timetable entry added successfully', { position: 'top-right', autoClose: 3000 });
+        setOpenAddForm(false);
+        setTimetableForm({
+          className: '',
+          section: '',
+          subject: '',
+          day: '',
+          time: '',
+          room: '',
+        });
+      })
+      .catch(() => {
+        toast.error('Failed to add timetable entry', { position: 'top-right', autoClose: 3000 });
+      });
+  };
+
+  const teacherOptions: { _id: string; label: string }[] = teachers.map((teacher: Teacher) => ({
+    _id: teacher._id,
+    label: `${teacher.fullName} (${teacher.teacherId})`,
+  }));
 
   return (
     <div className="teacher-timetable-container">
+      <ToastContainer />
       <style>
         {`
           .teacher-timetable-container {
@@ -111,21 +224,11 @@ const TeacherTimetable = () => {
             font-weight: 600;
           }
 
-          .teacher-selection select {
-            padding: 8px;
-            font-size: 14px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            transition: border-color 0.3s ease;
+          .teacher-selection .MuiFormControl-root {
+            min-width: 200px;
           }
 
-          .teacher-selection select:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
-          }
-
-          .search-btn {
+          .search-btn, .add-timetable-btn {
             background: #3498db;
             color: white;
             padding: 8px 15px;
@@ -137,7 +240,7 @@ const TeacherTimetable = () => {
             transition: background 0.3s ease;
           }
 
-          .search-btn:hover {
+          .search-btn:hover, .add-timetable-btn:hover {
             background: #2980b9;
           }
 
@@ -212,6 +315,38 @@ const TeacherTimetable = () => {
             padding: 10px;
           }
 
+          .attendance-section {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+          }
+
+          .attendance-section .MuiFormControl-root {
+            min-width: 120px;
+          }
+
+          .add-attendance-btn {
+            background: #27ae60;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background 0.3s ease;
+          }
+
+          .add-attendance-btn:hover {
+            background: #219653;
+          }
+
+          .form-field {
+            margin-bottom: 15px;
+            width: 100%;
+          }
+
           @media (max-width: 768px) {
             .timetable {
               flex-direction: column;
@@ -226,46 +361,148 @@ const TeacherTimetable = () => {
               align-items: flex-start;
             }
 
-            .teacher-selection select {
+            .teacher-selection .MuiFormControl-root {
               width: 100%;
               margin-bottom: 10px;
             }
 
-            .search-btn {
+            .search-btn, .add-timetable-btn {
               width: 100%;
             }
           }
         `}
       </style>
 
-      {/* Teacher Selection */}
       <h2>Teacher Time Table</h2>
+      {teachers.length === 0 && !teacherLoading && (
+        <div style={{ color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }}>
+          No teachers available. Please add teachers first.
+        </div>
+      )}
       <div className="teacher-selection">
-        <label>Teachers <span style={{ color: 'red' }}>*</span></label>
-        <select value={selectedTeacher} onChange={handleTeacherChange}>
-          <option value="">Select</option>
-          {Object.keys(teachersData).map((teacher) => (
-            <option key={teacher} value={teacher}>
-              {teacher}
-            </option>
-          ))}
-        </select>
-        <button className="search-btn" onClick={handleSearch}>Search</button>
+        <FormControl>
+          <InputLabel>Teachers</InputLabel>
+          <Select
+            value={selectedTeacher}
+            onChange={handleTeacherChange}
+            label="Teachers"
+            disabled={teacherLoading || !adminID}
+          >
+            <MenuItem value="">Select</MenuItem>
+            {teacherOptions.map((teacher) => (
+              <MenuItem key={teacher._id} value={teacher._id}>
+                {teacher.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button className="search-btn" onClick={handleSearch} disabled={teacherLoading || !adminID}>
+          Search
+        </Button>
+        <Button className="add-timetable-btn" onClick={handleOpenAddForm} disabled={teacherLoading || !adminID}>
+          Add Timetable
+        </Button>
       </div>
 
-      {/* Timetable Display */}
+      <Dialog open={openAddForm} onClose={handleCloseAddForm}>
+        <DialogTitle>Add Timetable Entry</DialogTitle>
+        <DialogContent>
+          <TextField
+            className="form-field"
+            label="Class (e.g., Class 1)"
+            name="className"
+            value={timetableForm.className}
+            onChange={handleFormChange}
+            fullWidth
+          />
+          <TextField
+            className="form-field"
+            label="Section (e.g., A)"
+            name="section"
+            value={timetableForm.section}
+            onChange={handleFormChange}
+            fullWidth
+          />
+          <TextField
+            className="form-field"
+            label="Subject (e.g., English)"
+            name="subject"
+            value={timetableForm.subject}
+            onChange={handleFormChange}
+            fullWidth
+          />
+          <FormControl className="form-field" fullWidth>
+            <InputLabel>Day</InputLabel>
+            <Select
+              name="day"
+              value={timetableForm.day}
+              onChange={handleFormChange}
+              label="Day"
+            >
+              <MenuItem value="">Select</MenuItem>
+              {days.map((day) => (
+                <MenuItem key={day} value={day}>{day}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            className="form-field"
+            label="Time (e.g., 9:00 AM - 09:40 AM)"
+            name="time"
+            value={timetableForm.time}
+            onChange={handleFormChange}
+            fullWidth
+          />
+          <TextField
+            className="form-field"
+            label="Room (e.g., 120)"
+            name="room"
+            value={timetableForm.room}
+            onChange={handleFormChange}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAddForm}>Cancel</Button>
+          <Button onClick={handleAddTimetable} color="primary">Add</Button>
+        </DialogActions>
+      </Dialog>
+
       {showTimetable && selectedTeacher && (
         <div className="timetable">
           {days.map((day) => (
             <div key={day} className="day-column">
               <h3>{day}</h3>
-              {teachersData[selectedTeacher][day].length > 0 ? (
-                teachersData[selectedTeacher][day].map((schedule, index) => (
-                  <div key={index} className="schedule-card">
-                    <p>Class: {schedule.class}</p>
+              {timetable[day]?.length > 0 ? (
+                timetable[day].map((schedule: TimetableEntry) => (
+                  <div key={schedule._id} className="schedule-card">
+                    <p>Class: {schedule.class} ({schedule.section})</p>
                     <p className="subject">Subject: {schedule.subject}</p>
                     <p className="time">{schedule.time}</p>
                     <p className="room">Room No.: {schedule.room}</p>
+                    <div className="attendance-section">
+                      <FormControl>
+                        <InputLabel>Attendance</InputLabel>
+                        <Select
+                          value={attendanceStatus[schedule._id] || ''}
+                          onChange={(e) => handleAttendanceChange(schedule._id, e.target.value as string)}
+                          label="Attendance"
+                          disabled={timetableLoading || !adminID}
+                        >
+                          <MenuItem value="">Select</MenuItem>
+                          <MenuItem value="Present">Present</MenuItem>
+                          <MenuItem value="Absent">Absent</MenuItem>
+                          <MenuItem value="Leave">Leave</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <Button
+                        className="add-attendance-btn"
+                        onClick={() => handleAddAttendance(schedule._id)}
+                        disabled={timetableLoading || !adminID}
+                      >
+                        Add Attendance
+                      </Button>
+                    </div>
                   </div>
                 ))
               ) : (

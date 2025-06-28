@@ -39,16 +39,26 @@ import reminderReducer from './feeRelated/reminderSlice.js';
 import storeSlice from './storeItemRelated/storeSlice.js';
 import supplierSlice from './supplierRelated/supplierSlice.js';
 import categoryCardSlice from './categoryRelated/categorySlice.js';
- // jo upar banaya tha
-       
 import stockItemReducer from './itemStockRelated/itemStockSlice.js';
 import itemReducer from './itemRelated/itemSlice';
+import examGroupReducer from './examRelated/exam-group-slice.js';
+import examScheduleReducer from './examRelated/exam-schedule-slice';
 
 import divisionSlice from './divisionRelated/divisionSlice.js';
 
 import markGradeSlice from './markGradeRelated/markGradeSlice.js';
 
 import issueItemReducer from './IssueItemStock/IssueItemSlice.js';
+import examResultReducer from './examRelated/examResultSlice.js';
+import admitCardReducer from './examRelated/admit-card-slice.js';
+import marksheetReducer from './examRelated/marksheet-slice.js';
+import transportFeesReducer from './TransportRelated/transport-fees-slice.js';
+import addTransportFeeReducer from './TransportRelated/AddTransportFeeSlice';
+import promotionReducer from './promotion/promotionSlice.js';
+import subjectGroupReducer from './subjectGroup/subjectGroupSlice.js';
+import subjectiveReducer from './subjective/subjectiveSlice.js';
+import classTeacherAssignmentReducer from './classteacherassign/classTeacherAssignmentSlice.js';
+import timetableReducer from './Timetable/timetableSlice.js';
 
 
 
@@ -64,7 +74,7 @@ const store = configureStore({
         sclass: sclassReducer,
         fclass: classReducer,
         sections: sectionReducer,
-        subject: subjectSlice, 
+        subjects: subjectSlice, 
         complaints: complaintReducer,
         admissionEnquiry: admissionEnquiryReducer,
         postalDispatch: postalDispatchReducer,
@@ -102,6 +112,18 @@ const store = configureStore({
                 division :divisionSlice,
                 markGrade :markGradeSlice,
                 issueItem: issueItemReducer,
+                examGroup: examGroupReducer,
+                examSchedule: examScheduleReducer,
+                examResult: examResultReducer,
+                admitCard: admitCardReducer,
+                marksheet: marksheetReducer,
+                transportFees: transportFeesReducer,
+                addTransportFee: addTransportFeeReducer,
+                promotion: promotionReducer,
+                subjectGroup: subjectGroupReducer,
+                subjective: subjectiveReducer,
+                classTeacherAssignment: classTeacherAssignmentReducer,
+                timetable: timetableReducer,
         // librarians: librariansReducer, // ✅ Key should match useSelector()
     },
 });

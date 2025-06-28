@@ -1,143 +1,307 @@
-import React, { useState } from "react";
-import { FaPlus, FaEdit, FaTrash, FaBookOpen } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import {
+  Box, Typography, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, IconButton, Snackbar, Alert, Grid, Card, CardContent, Dialog, DialogTitle,
+  DialogContent, DialogActions, MenuItem, Select, InputLabel, FormControl
+} from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import {
+  getAllExamGroups,
+  createExamGroup,
+  updateExamGroup,
+  deleteExamGroup,
+  clearExamGroupError,
+} from '../../../redux/examRelated/exam-group-actions';
+
+const examTypes = [
+  'General Purpose (Pass/Fail)',
+  'School Based Grading System',
+  'College Based Grading System',
+  'GPA Grading System',
+  'Average Passing',
+];
 
 const GroupExam = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const examGroupState = useSelector((state) => state.examGroup || { examGroupsList: [], loading: false, error: null });
+  const userState = useSelector((state) => state.user || {});
+  const { examGroupsList, loading, error } = examGroupState;
+  const adminID = userState.currentUser?._id;
 
-  // Sample Exam Groups Data
-  const [examGroups, setExamGroups] = useState([
-    { id: 1, name: "Class 4 (Pass/Fail)", exams: 12, type: "General Purpose (Pass/Fail)", description: "Basic pass/fail system" },
-    { id: 2, name: "Class 4 (School Based Grading System)", exams: 13, type: "School Based Grading System", description: "Standard school grading" },
-    { id: 3, name: "Class 4 (College Based Grading System)", exams: 8, type: "College Based Grading System", description: "University grading system" },
-    { id: 4, name: "Class 4 (GPA Grading System)", exams: 11, type: "GPA Grading System", description: "Grade Point Average system" },
-    { id: 5, name: "Average Passing Exam", exams: 8, type: "Average Passing", description: "Minimum passing requirement" },
-  ]);
-
-  const examTypes = ["General Purpose (Pass/Fail)", "School Based Grading System", "College Based Grading System", "GPA Grading System", "Average Passing"];
-
-  // Form Handling
-  const [formData, setFormData] = useState({ name: "", type: "", description: "" });
+  const [formData, setFormData] = useState({ name: '', type: '', description: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    if (adminID) {
+      dispatch(getAllExamGroups(adminID));
+    } else {
+      setSnack({ open: true, message: 'Please log in to view exam groups', severity: 'error' });
+    }
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    if (error) {
+      setSnack({ open: true, message: error, severity: 'error' });
+      dispatch(clearExamGroupError());
+    }
+  }, [error, dispatch]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (isEditing) {
-      setExamGroups(
-        examGroups.map((group) =>
-          group.id === editId ? { ...group, ...formData } : group
-        )
-      );
-      setIsEditing(false);
-      setEditId(null);
-    } else {
-      const newGroup = { id: examGroups.length + 1, ...formData, exams: 0 };
-      setExamGroups([...examGroups, newGroup]);
+  const handleSubmit = () => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to manage exam groups', severity: 'error' });
+      return;
     }
-    setFormData({ name: "", type: "", description: "" });
+    if (!formData.name || !formData.type) {
+      setSnack({ open: true, message: 'Name and type are required', severity: 'warning' });
+      return;
+    }
+    if (isEditing) {
+      dispatch(updateExamGroup({ id: editId, examGroup: formData, adminID }))
+        .then(() => {
+          setSnack({ open: true, message: 'Exam group updated successfully', severity: 'success' });
+          setFormData({ name: '', type: '', description: '' });
+          setIsEditing(false);
+          setEditId(null);
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to update exam group', severity: 'error' });
+        });
+    } else {
+      dispatch(createExamGroup(formData, adminID))
+        .then(() => {
+          setSnack({ open: true, message: 'Exam group added successfully', severity: 'success' });
+          setFormData({ name: '', type: '', description: '' });
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to add exam group', severity: 'error' });
+        });
+    }
   };
 
-  const handleEdit = (id) => {
-    const selectedGroup = examGroups.find((group) => group.id === id);
-    setFormData({ name: selectedGroup.name, type: selectedGroup.type, description: selectedGroup.description });
+  const handleEdit = (group) => {
+    setFormData({ name: group.name, type: group.type, description: group.description });
     setIsEditing(true);
-    setEditId(id);
+    setEditId(group._id);
+  };
+
+  const handleDelete = (id) => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to delete exam groups', severity: 'error' });
+      return;
+    }
+    if (window.confirm('Are you sure you want to delete this exam group?')) {
+      dispatch(deleteExamGroup(id, adminID))
+        .then(() => {
+          setSnack({ open: true, message: 'Exam group deleted successfully', severity: 'info' });
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to delete exam group', severity: 'error' });
+        });
+    }
   };
 
   const handleNavigateToAddExam = () => {
-    navigate("/add-exam");
+    navigate('/add-exam');
   };
 
   return (
-    <div style={styles.container}>
-      {/* Add/Edit Exam Group Section */}
-      <div style={styles.formSection}>
-        <h2 style={styles.heading}>{isEditing ? "Edit Exam Group" : "Add Exam Group"}</h2>
-        <form onSubmit={handleSubmit}>
-          <label style={styles.label}>Name *</label>
-          <input type="text" name="name" value={formData.name} onChange={handleChange} style={styles.input} required />
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          fontWeight: 700,
+          color: '#1a2526',
+          mb: 4,
+          fontSize: { xs: '1.5rem', md: '2.125rem' },
+        }}
+      >
+        Exam Group Management
+      </Typography>
 
-          <label style={styles.label}>Exam Type *</label>
-          <select name="type" value={formData.type} onChange={handleChange} style={styles.input} required>
-            <option value="">Select</option>
-            {examTypes.map((type, index) => (
-              <option key={index} value={type}>{type}</option>
-            ))}
-          </select>
+      <Grid container spacing={3}>
+        {/* Add/Edit Exam Group Section */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', bgcolor: '#d3e0ff' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526', mb: 2 }}>
+                {isEditing ? 'Edit Exam Group' : 'Add Exam Group'}
+              </Typography>
+              <TextField
+                fullWidth
+                label="Name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                variant="outlined"
+                size="small"
+                sx={{ mb: 2 }}
+                required
+              />
+              <FormControl fullWidth sx={{ mb: 2 }} size="small">
+                <InputLabel>Exam Type</InputLabel>
+                <Select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
+                  label="Exam Type"
+                  required
+                >
+                  <MenuItem value="">Select</MenuItem>
+                  {examTypes.map((type, index) => (
+                    <MenuItem key={index} value={type}>{type}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                variant="outlined"
+                size="small"
+                multiline
+                rows={3}
+                sx={{ mb: 2 }}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleSubmit}
+                sx={{ borderRadius: '20px', textTransform: 'none' }}
+                startIcon={<AddIcon />}
+              >
+                {isEditing ? 'Update' : 'Add'} Exam Group
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
 
-          <label style={styles.label}>Description</label>
-          <textarea name="description" value={formData.description} onChange={handleChange} style={styles.textarea}></textarea>
+        {/* Exam Group List Section */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526' }}>
+                  Exam Group List
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleNavigateToAddExam}
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  startIcon={<AddIcon />}
+                >
+                  Add Examination Name
+                </Button>
+              </Box>
+              <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#1a2526' }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        Name
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        No. of Exams
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        Exam Type
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        Description
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        Action
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center' }}>
+                          Loading...
+                        </TableCell>
+                      </TableRow>
+                    ) : examGroupsList.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center', p: 4, color: '#666' }}>
+                          No exam groups found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      examGroupsList.map((group, idx) => (
+                        <TableRow
+                          key={group._id}
+                          sx={{
+                            bgcolor: idx % 2 ? '#fff' : '#f9f9f9',
+                            '&:hover': { bgcolor: '#e0f7fa' },
+                          }}
+                        >
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {group.name}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {group.exams}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {group.type}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
+                            {group.description}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 } }}>
+                            <IconButton
+                              onClick={() => handleEdit(group)}
+                              sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}
+                              title="Edit"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => handleDelete(group._id)}
+                              sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}
+                              title="Delete"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Typography sx={{ mt: 2, color: '#1a2526' }}>
+                Records: {examGroupsList.length} of {examGroupsList.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-          <button type="submit" style={styles.button}>
-            <FaPlus style={{ marginRight: "5px" }} /> {isEditing ? "Update" : "Add"} Exam Group
-          </button>
-        </form>
-      </div>
-
-      {/* Add Examination Name Button */}
-      <div style={styles.topBar}>
-        <button style={styles.addExamButton} onClick={handleNavigateToAddExam}>
-          <FaPlus style={{ marginRight: "5px" }} /> Add Examination Name
-        </button>
-      </div>
-
-      {/* Exam Group List Section */}
-      <div style={styles.listSection}>
-        <h2 style={styles.heading}>Exam Group List</h2>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>No. of Exams</th>
-              <th>Exam Type</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {examGroups.map((group) => (
-              <tr key={group.id}>
-                <td><FaBookOpen style={{ marginRight: "5px" }} /> {group.name}</td>
-                <td>{group.exams}</td>
-                <td>{group.type}</td>
-                <td>{group.description}</td>
-                <td>
-                  <button style={styles.editButton} onClick={() => handleEdit(group.id)}>
-                    <FaEdit style={{ marginRight: "5px" }} /> Edit
-                  </button>
-                  <button style={styles.deleteButton}>
-                    <FaTrash style={{ marginRight: "5px" }} /> Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
-};
-
-// Internal CSS Styles
-const styles = {
-  container: { padding: "20px" },
-  formSection: { backgroundColor: "#d3e0ff", padding: "15px", borderRadius: "5px", marginBottom: "20px" },
-  heading: { fontSize: "18px", marginBottom: "10px" },
-  label: { display: "block", marginBottom: "5px", fontWeight: "bold" },
-  input: { padding: "8px", width: "100%", borderRadius: "4px", border: "1px solid #ccc", marginBottom: "10px" },
-  textarea: { padding: "8px", width: "100%", height: "60px", borderRadius: "4px", border: "1px solid #ccc", marginBottom: "10px" },
-  button: { backgroundColor: "#28a745", color: "#fff", padding: "8px 12px", border: "none", borderRadius: "4px", cursor: "pointer", display: "flex", alignItems: "center" },
-  topBar: { display: "flex", justifyContent: "flex-end", marginBottom: "10px" },
-  addExamButton: { backgroundColor: "#007bff", color: "#fff", padding: "10px", border: "none", borderRadius: "4px", cursor: "pointer", display: "flex", alignItems: "center" },
-  listSection: { padding: "20px", border: "1px solid #ddd", borderRadius: "5px", backgroundColor: "#87abed" },
-  table: { width: "100%", borderCollapse: "collapse", marginTop: "10px" },
-  editButton: { backgroundColor: "#ffc107", color: "#000", border: "none", padding: "5px 10px", cursor: "pointer", marginRight: "5px", display: "flex", alignItems: "center" },
-  deleteButton: { backgroundColor: "#dc3545", color: "#fff", border: "none", padding: "5px 10px", cursor: "pointer", display: "flex", alignItems: "center" },
 };
 
 export default GroupExam;

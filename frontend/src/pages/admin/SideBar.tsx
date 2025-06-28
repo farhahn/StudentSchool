@@ -476,7 +476,7 @@ const SideBar = () => {
             <ListItemText primary="Design Admit Card" />
         </ListItemButton>
 
-        <ListItemButton
+        {/* <ListItemButton
             component={Link}
             to="/Admin/examination/printadmitcard"
             sx={{
@@ -489,24 +489,24 @@ const SideBar = () => {
                 <PrintIcon color={location.pathname === "/Admin/examination/printadmitcard" ? 'primary' : 'inherit'} />
             </ListItemIcon>
             <ListItemText primary="Print Admit Card" />
-        </ListItemButton>
+        </ListItemButton> */}
 
         <ListItemButton
             component={Link}
-            to="/Admin/examination/designmarksheet"
+            to="/Admin/examination/marksheetdesigner"
             sx={{
                 pl: 4,
-                backgroundColor: location.pathname === "/Admin/examination/designmarksheet" ? "#E8C897" : "inherit",
+                backgroundColor: location.pathname === "/Admin/examination/marksheetdesigner" ? "#E8C897" : "inherit",
                 '&:hover': { backgroundColor: "#E8C897" },
             }}
         >
             <ListItemIcon>
-                <DescriptionIcon color={location.pathname === "/Admin/examination/designmarksheet" ? 'primary' : 'inherit'} />
+                <DescriptionIcon color={location.pathname === "/Admin/examination/marksheetdesigner" ? 'primary' : 'inherit'} />
             </ListItemIcon>
             <ListItemText primary="Design Marksheet" />
         </ListItemButton>
 
-        <ListItemButton
+        {/* <ListItemButton
             component={Link}
             to="/Admin/examination/printmarksheet"
             sx={{
@@ -519,7 +519,7 @@ const SideBar = () => {
                 <PrintIcon color={location.pathname === "/Admin/examination/printmarksheet" ? 'primary' : 'inherit'} />
             </ListItemIcon>
             <ListItemText primary="Print Marksheet" />
-        </ListItemButton>
+        </ListItemButton> */}
 
         <ListItemButton
             component={Link}

@@ -111,6 +111,7 @@ import ItemSupplier from './inventory/ItemSupplier.tsx';
 import DisableStudents from '../studentall/DisableStudents.tsx';
 import TeacherForm from '../teacherAll/TeacherForm.jsx';
 import ManageTeacher from '../teacherAll/ManageTeacher.jsx';
+import MarksheetDesigner from './Examination/MarksheetDesigner.tsx';
 
 
 
@@ -276,6 +277,8 @@ const AdminDashboard = () => {
                          <Route path="/Admin/examination/printadmitcard" element={<PrintAdmitCard/>} />
                          <Route path="/Admin/examination/markgrade" element={<MarksGrade/>} />
                          <Route path="/Admin/examination/markdivision" element={<MarkDivision/>} />
+                         <Route path="/Admin/examination/marksheetdesigner" element={<MarksheetDesigner/>} />
+                         
 
 
                           {/*Academics*/}

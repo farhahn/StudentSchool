@@ -1,678 +1,613 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { getAllAdmitCards, createAdmitCard, clearAdmitCardError } from '../../../redux/examRelated/admit-card-actions';
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  Grid,
+  Card,
+  CardContent,
+} from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
 
 const AdmitCardPage = () => {
-  // State for form inputs
-  const [template, setTemplate] = useState('');
-  const [heading, setHeading] = useState('');
-  const [title, setTitle] = useState('');
-  const [examName, setExamName] = useState('');
-  const [schoolName, setSchoolName] = useState('');
-  const [examCenter, setExamCenter] = useState('');
-  const [footerText, setFooterText] = useState('');
-
-  // State for admit card list
-  const [admitCards, setAdmitCards] = useState([
-    { 
-      id: 1, 
-      name: '', 
-      backgroundImg: 'image.jpg', 
-      active: true,
-      template: '',
-      heading: '',
-      examName: '',
-      schoolName: '',
-      examCenter: '',
-      footerText: ''
-    }
-  ]);
-
-  // State for toggle switches
-  const [toggles, setToggles] = useState({
-    name: true,
-    fatherName: false,
-    motherName: false,
-    dateOfBirth: false,
-    admissionNo: true,
-    rollNumber: true,
-    address: false,
-    gender: false,
-    photo: false,
-    class: true,
-    section: true
-  });
-
-  // State for file uploads
-  const [files, setFiles] = useState({
+  const [formData, setFormData] = useState({
+    template: '',
+    studentName: '',
+    examName: '',
+    examDate: '',
+    examCenter: '',
+    footerText: '',
+    printingDate: '',
     leftLogo: null,
     rightLogo: null,
     sign: null,
-    backgroundImage: null
+    backgroundImage: null,
+    subjects: [{ subject: '', date: '' }],
+    options: {
+      name: true,
+      fatherName: false,
+      motherName: false,
+      admissionNo: true,
+      rollNumber: true,
+      dob: false,
+      gender: false,
+      photo: false,
+    },
   });
 
-  // State for dropdown menu and editing
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [editingCard, setEditingCard] = useState(null);
+  const [selectedAdmitCard, setSelectedAdmitCard] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
+  const [isHtml2CanvasLoaded, setIsHtml2CanvasLoaded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+  const previewRef = useRef(null);
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
-  // Handle file upload
-  const handleFileUpload = (field, acceptedFiles) => {
-    if (acceptedFiles && acceptedFiles.length > 0) {
-      setFiles(prev => ({
-        ...prev,
-        [field]: acceptedFiles[0]
-      }));
-    }
-  };
+  const dispatch = useDispatch();
+  const admitCardState = useSelector((state) => state.admitCard || { admitCardsList: [], loading: false, error: null });
+  const userState = useSelector((state) => state.user || {});
+  const { admitCardsList, loading, error } = admitCardState;
+  const adminID = userState.currentUser?._id;
 
-  // File upload component
-  const FileUpload = ({ field, onUpload }) => {
-    const [dragActive, setDragActive] = useState(false);
-
-    const handleDrag = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.type === 'dragover') {
-        setDragActive(true);
-      } else if (e.type === 'dragleave') {
-        setDragActive(false);
-      }
-    };
-
-    const handleDrop = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDragActive(false);
-      const droppedFiles = e.dataTransfer.files;
-      onUpload(field, droppedFiles);
-    };
-
-    return (
-      <div
-        style={{
-          ...uploadBoxStyle,
-          ...(dragActive ? dragActiveStyle : {}),
-          position: 'relative'
-        }}
-        onDragOver={handleDrag}
-        onDragLeave={handleDrag}
-        onDrop={handleDrop}
-      >
-        {files[field] ? files[field].name : 'Drag and drop or click to upload'}
-        <input
-          type="file"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            opacity: 0,
-            cursor: 'pointer'
-          }}
-          onChange={(e) => onUpload(field, e.target.files)}
-        />
-      </div>
-    );
-  };
-
-  // Handle toggle switch changes
-  const handleToggle = (key) => {
-    setToggles(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (editingCard) {
-      // Update existing card
-      setAdmitCards(admitCards.map(card => 
-        card.id === editingCard ? {
-          ...card,
-          name: title,
-          template,
-          heading,
-          examName,
-          schoolName,
-          examCenter,
-          footerText,
-          backgroundImg: files.backgroundImage?.name || card.backgroundImg
-        } : card
-      ));
-      setEditingCard(null);
+  useEffect(() => {
+    if (adminID) {
+      dispatch(getAllAdmitCards(adminID));
     } else {
-      // Add new card
-      const newAdmitCard = {
-        id: admitCards.length + 1,
-        name: title || 'New Admit Card',
-        template,
-        heading,
-        examName,
-        schoolName,
-        examCenter,
-        footerText,
-        backgroundImg: files.backgroundImage?.name || 'new-image.jpg',
-        active: true
-      };
-      setAdmitCards([...admitCards, newAdmitCard]);
+      setSnack({ open: true, message: 'Please log in to view admit cards', severity: 'error' });
     }
-    // Reset form
-    setTemplate('');
-    setHeading('');
-    setTitle('');
-    setExamName('');
-    setSchoolName('');
-    setExamCenter('');
-    setFooterText('');
-    setFiles({
-      leftLogo: null,
-      rightLogo: null,
-      sign: null,
-      backgroundImage: null
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    if (error) {
+      setSnack({ open: true, message: error, severity: 'error' });
+      dispatch(clearAdmitCardError());
+    }
+  }, [error, dispatch]);
+
+  useEffect(() => {
+    if (!window.html2canvas) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      script.async = true;
+      script.onload = () => setIsHtml2CanvasLoaded(true);
+      script.onerror = () => setDownloadError('Failed to load html2canvas library.');
+      document.head.appendChild(script);
+    } else {
+      setIsHtml2CanvasLoaded(true);
+    }
+  }, []);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubjectChange = (index, field, value) => {
+    const newSubjects = [...formData.subjects];
+    newSubjects[index][field] = value;
+    setFormData({ ...formData, subjects: newSubjects });
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    if (files && files[0]) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData({ ...formData, [name]: event.target.result });
+      };
+      reader.readAsDataURL(files[0]);
+    }
+  };
+
+  const handleCheckboxChange = (e) => {
+    const { name, checked } = e.target;
+    setFormData({
+      ...formData,
+      options: { ...formData.options, [name]: checked },
     });
   };
 
-  // Handle delete action
-  const handleDelete = (id) => {
-    setAdmitCards(admitCards.filter(card => card.id !== id));
-    setOpenMenuId(null);
+  const addSubject = () => {
+    setFormData({
+      ...formData,
+      subjects: [...formData.subjects, { subject: '', date: '' }],
+    });
   };
 
-  // Handle edit action
-  const handleEdit = (card) => {
-    setEditingCard(card.id);
-    setTemplate(card.template);
-    setHeading(card.heading);
-    setTitle(card.name);
-    setExamName(card.examName);
-    setSchoolName(card.schoolName);
-    setExamCenter(card.examCenter);
-    setFooterText(card.footerText);
-    setOpenMenuId(null);
+  const handleSave = () => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to save admit cards', severity: 'error' });
+      return;
+    }
+    if (!formData.template || !formData.studentName || !formData.examName || !formData.examDate || !formData.examCenter) {
+      setSnack({ open: true, message: 'Required fields missing', severity: 'warning' });
+      return;
+    }
+    dispatch(createAdmitCard(formData, adminID))
+      .then(() => {
+        setSnack({ open: true, message: 'Admit card saved successfully', severity: 'success' });
+        setFormData({
+          template: '',
+          studentName: '',
+          examName: '',
+          examDate: '',
+          examCenter: '',
+          footerText: '',
+          printingDate: '',
+          leftLogo: null,
+          rightLogo: null,
+          sign: null,
+          backgroundImage: null,
+          subjects: [{ subject: '', date: '' }],
+          options: {
+            name: true,
+            fatherName: false,
+            motherName: false,
+            admissionNo: true,
+            rollNumber: true,
+            dob: false,
+            gender: false,
+            photo: false,
+          },
+        });
+      })
+      .catch((err) => {
+        setSnack({ open: true, message: err.message || 'Failed to save', severity: 'error' });
+      });
   };
 
-  // Handle three-dot menu toggle
-  const handleMenuToggle = (id) => {
-    setOpenMenuId(openMenuId === id ? null : id);
+  const handleDownload = () => {
+    setDownloadError(null);
+    if (!previewRef.current) {
+      setDownloadError('Preview not available.');
+      return;
+    }
+    if (!window.html2canvas || !isHtml2CanvasLoaded) {
+      setDownloadError('html2canvas not loaded.');
+      return;
+    }
+    window.html2canvas(previewRef.current, { scale: 2 })
+      .then((canvas) => {
+        const link = document.createElement('a');
+        link.download = `${selectedAdmitCard?.template || 'admitcard'}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 1.0);
+        link.click();
+      })
+      .catch((error) => {
+        setDownloadError('Failed to generate JPG: ' + error.message);
+      });
   };
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.action-menu')) {
-        setOpenMenuId(null);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  // Table actions component
-  const TableActions = ({ card }) => (
-    <td style={tableCellStyle}>
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <button 
-          style={actionButtonStyle}
-          onClick={() => handleMenuToggle(card.id)}
-          className="action-menu"
-        >
-          ⋮
-        </button>
-        {openMenuId === card.id && (
-          <div style={dropdownMenuStyle}>
-            <button 
-              style={dropdownItemStyle}
-              onClick={() => handleEdit(card)}
-            >
-              ✏️ Edit
-            </button>
-            <button 
-              style={dropdownItemStyle}
-              onClick={() => handleDelete(card.id)}
-            >
-              ❌ Delete
-            </button>
-          </div>
-        )}
-      </div>
-    </td>
+  // Filter admit cards based on search term
+  const filteredAdmitCards = admitCardsList.filter((admitCard) =>
+    admitCard.template.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    admitCard.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    admitCard.examName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div style={containerStyle}>
-      {/* Side-by-Side Sections */}
-      <div style={sideBySideContainerStyle}>
-        {/* Add/Edit Admit Card Section */}
-        <div id="form-section" style={sideSectionStyle}>
-          <h2 style={headingStyle}>
-            {editingCard ? 'Edit Admit Card' : 'Add Admit Card'}
-          </h2>
-          <form onSubmit={handleSubmit}>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>
-                Template <span style={requiredStyle}>*</span>
-              </label>
-              <input
-                type="text"
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter template"
-                required
+    <Box sx={{ padding: { xs: 1, md: 2 }, bgcolor: '#f9f9f9', minHeight: '100vh' }}>
+      <Typography
+        variant="h4"
+        sx={{
+          textAlign: 'center',
+          fontWeight: 700,
+          color: '#1a2526',
+          mb: { xs: 2, md: 4 },
+          fontSize: { xs: '1.5rem', md: '2.125rem' },
+        }}
+      >
+        Admit Card Designer
+      </Typography>
+      <Grid container spacing={2}>
+        {/* Design Form */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ p: 2, bgcolor: 'white', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>Design Admit Card</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label="Template"
+                  name="template"
+                  value={formData.template}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  required
+                />
+                <TextField
+                  label="Student Name"
+                  name="studentName"
+                  value={formData.studentName}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  required
+                />
+                <TextField
+                  label="Exam Name"
+                  name="examName"
+                  value={formData.examName}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  required
+                />
+                <TextField
+                  label="Exam Date"
+                  name="examDate"
+                  type="date"
+                  value={formData.examDate}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  required
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label="Exam Center"
+                  name="examCenter"
+                  value={formData.examCenter}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  required
+                />
+                {formData.subjects.map((subjectData, index) => (
+                  <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                      label={`Subject ${index + 1}`}
+                      value={subjectData.subject}
+                      onChange={(e) => handleSubjectChange(index, 'subject', e.target.value)}
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                    />
+                    <TextField
+                      label="Date"
+                      type="date"
+                      value={subjectData.date}
+                      onChange={(e) => handleSubjectChange(index, 'date', e.target.value)}
+                      fullWidth
+                      size="small"
+                      variant="outlined"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    {index === formData.subjects.length - 1 && (
+                      <IconButton
+                        onClick={addSubject}
+                        sx={{ color: '#1976d2', '&:hover': { color: '#1565c0' } }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    )}
+                  </Box>
+                ))}
+                <TextField
+                  label="Footer Text"
+                  name="footerText"
+                  value={formData.footerText}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                />
+                <TextField
+                  label="Printing Date"
+                  name="printingDate"
+                  type="date"
+                  value={formData.printingDate}
+                  onChange={handleInputChange}
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  InputLabelProps={{ shrink: true }}
+                />
+                {/* File Uploads with Labels and Previews */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography variant="subtitle2">Upload Images</Typography>
+                  <label>
+                    <input
+                      type="file"
+                      name="leftLogo"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      fullWidth
+                      size="small"
+                    >
+                      Upload Left Logo
+                    </Button>
+                    {formData.leftLogo && <Typography variant="caption">Left Logo: Uploaded</Typography>}
+                  </label>
+                  <label>
+                    <input
+                      type="file"
+                      name="rightLogo"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      fullWidth
+                      size="small"
+                    >
+                      Upload Right Logo
+                    </Button>
+                    {formData.rightLogo && <Typography variant="caption">Right Logo: Uploaded</Typography>}
+                  </label>
+                  <label>
+                    <input
+                      type="file"
+                      name="sign"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      fullWidth
+                      size="small"
+                    >
+                      Upload Signature
+                    </Button>
+                    {formData.sign && <Typography variant="caption">Signature: Uploaded</Typography>}
+                  </label>
+                  <label>
+                    <input
+                      type="file"
+                      name="backgroundImage"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      fullWidth
+                      size="small"
+                    >
+                      Upload Background
+                    </Button>
+                    {formData.backgroundImage && <Typography variant="caption">Background: Uploaded</Typography>}
+                  </label>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Options to Include</Typography>
+                  <Grid container spacing={1}>
+                    {Object.keys(formData.options).map((key) => (
+                      <Grid item xs={6} key={key}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <input
+                            type="checkbox"
+                            name={key}
+                            checked={formData.options[key]}
+                            onChange={handleCheckboxChange}
+                          />
+                          <Typography variant="body2">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSave}
+                  fullWidth
+                  sx={{ mt: 2, py: 1 }}
+                >
+                  Save
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        {/* Admit Card List and Preview */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ p: 2, bgcolor: 'white', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>Admit Card List</Typography>
+              {/* Search Bar */}
+              <TextField
+                label="Search Admit Cards"
+                variant="outlined"
+                size="small"
+                fullWidth
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ mb: 2 }}
               />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Heading</label>
-              <input
-                type="text"
-                value={heading}
-                onChange={(e) => setHeading(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter heading"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter title"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Exam Name</label>
-              <input
-                type="text"
-                value={examName}
-                onChange={(e) => setExamName(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter exam name"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>School Name</label>
-              <input
-                type="text"
-                value={schoolName}
-                onChange={(e) => setSchoolName(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter school name"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Exam Center</label>
-              <input
-                type="text"
-                value={examCenter}
-                onChange={(e) => setExamCenter(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter exam center"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Footer Text</label>
-              <input
-                type="text"
-                value={footerText}
-                onChange={(e) => setFooterText(e.target.value)}
-                style={inputStyle}
-                placeholder="Enter footer text"
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Left Logo</label>
-              <FileUpload
-                field="leftLogo"
-                onUpload={handleFileUpload}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Right Logo</label>
-              <FileUpload
-                field="rightLogo"
-                onUpload={handleFileUpload}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Sign</label>
-              <FileUpload
-                field="sign"
-                onUpload={handleFileUpload}
-              />
-            </div>
-          </form>
-        </div>
-
-        {/* Background Image Section */}
-        <div style={sideSectionStyle}>
-          <h2 style={headingStyle}>Background Image</h2>
-          <div style={formGroupStyle}>
-            <label style={labelStyle}>Background Image</label>
-            <FileUpload
-              field="backgroundImage"
-              onUpload={handleFileUpload}
-            />
-          </div>
-          <div style={toggleContainerStyle}>
-            {Object.keys(toggles).map(key => (
-              <div key={key} style={toggleRowStyle}>
-                <span style={toggleLabelStyle}>
-                  {key.split(/(?=[A-Z])/).join(' ').replace(/\b\w/g, char => char.toUpperCase())}
-                </span>
-                <label style={switchStyle}>
-                  <input
-                    type="checkbox"
-                    checked={toggles[key]}
-                    onChange={() => handleToggle(key)}
-                    style={{ display: 'none' }}
-                  />
-                  <span style={toggles[key] ? sliderOnStyle : sliderOffStyle}></span>
-                </label>
-              </div>
-            ))}
-          </div>
-          <div style={buttonContainerStyle}>
-            <button style={saveButtonStyle} type="submit">
-              {editingCard ? 'Update' : 'Save'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Admit Card List Section */}
-      <div style={sectionStyle}>
-        <h2 style={headingStyle}>Admit Card List</h2>
-        <div style={tableWrapperStyle}>
-          <table style={tableStyle}>
-            <thead>
-              <tr style={tableHeaderRowStyle}>
-                <th style={tableHeaderStyle}>Certificate Name</th>
-                <th style={tableHeaderStyle}>Background IMG</th>
-                <th style={tableHeaderStyle}>Active</th>
-                <th style={tableHeaderStyle}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {admitCards.map(card => (
-                <tr key={card.id} style={tableRowStyle}>
-                  <td style={tableCellStyle}>{card.name}</td>
-                  <td style={tableCellStyle}>{card.backgroundImg}</td>
-                  <td style={tableCellStyle}>
-                    <span style={card.active ? activeDotStyle : inactiveDotStyle}></span>
-                  </td>
-                  <TableActions card={card} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div style={paginationStyle}>
-          Records: 1 to {admitCards.length} of {admitCards.length}
-        </div>
-      </div>
-    </div>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {loading ? (
+                  <Typography textAlign="center">Loading...</Typography>
+                ) : filteredAdmitCards.length === 0 ? (
+                  <Typography textAlign="center">No admit cards found</Typography>
+                ) : (
+                  filteredAdmitCards.map((admitCard) => (
+                    <Card
+                      key={admitCard._id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        p: 1,
+                        bgcolor: '#f5f5f5',
+                        borderRadius: 1,
+                        '&:hover': { bgcolor: '#e0f7fa' },
+                      }}
+                    >
+                      <Typography
+                        sx={{ color: '#1976d2', cursor: 'pointer', p: 1 }}
+                        onClick={() => setSelectedAdmitCard(admitCard)}
+                      >
+                        {admitCard.template}
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={handleDownload}
+                        size="small"
+                        sx={{ mr: 1 }}
+                      >
+                        Download JPG
+                      </Button>
+                    </Card>
+                  ))
+                )}
+              </Box>
+              {downloadError && (
+                <Typography color="error" sx={{ mt: 1, textAlign: 'center' }}>
+                  {downloadError}
+                </Typography>
+              )}
+              {selectedAdmitCard && (
+                <Box
+                  ref={previewRef}
+                  sx={{
+                    mt: 2,
+                    p: 2,
+                    bgcolor: 'white',
+                    border: '2px solid #000',
+                    borderRadius: 2,
+                    boxShadow: 2,
+                    width: '100%',
+                    maxWidth: { xs: '100%', md: '800px' },
+                    margin: '0 auto',
+                    fontFamily: 'Arial, sans-serif',
+                    backgroundImage: selectedAdmitCard.backgroundImage ? `url(${selectedAdmitCard.backgroundImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1, borderBottom: '2px solid #000' }}>
+                    {selectedAdmitCard.leftLogo && (
+                      <img src={selectedAdmitCard.leftLogo} alt="Left Logo" style={{ width: 50, height: 50 }} />
+                    )}
+                    <Box sx={{ textAlign: 'center', flexGrow: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#333' }}>
+                        {selectedAdmitCard.examCenter || 'TP International CBSE School'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">Kamacha, Varanasi</Typography>
+                      <Typography variant="caption" color="text.secondary">(0542)-XXXXXXXXXX</Typography>
+                    </Box>
+                    {selectedAdmitCard.rightLogo && (
+                      <img src={selectedAdmitCard.rightLogo} alt="Right Logo" style={{ width: 50, height: 50 }} />
+                    )}
+                  </Box>
+                  <Box sx={{ textAlign: 'center', mt: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+                      {selectedAdmitCard.template || 'Admit Card'}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      Exam: {selectedAdmitCard.examName || 'Annual Exam'} | Date: {selectedAdmitCard.examDate || '2025-06-22'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', bgcolor: '#90EE90', p: 1, borderRadius: 1 }}>
+                      Candidate Details
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 1 }}>
+                      <Box>
+                        {selectedAdmitCard.options.name && (
+                          <Typography variant="body2"><strong>Name:</strong> {selectedAdmitCard.studentName || 'Shri Narayan Pandey'}</Typography>
+                        )}
+                        {selectedAdmitCard.options.fatherName && (
+                          <Typography variant="body2"><strong>Father's Name:</strong> Shri Anupam Kumar Pandey</Typography>
+                        )}
+                        {selectedAdmitCard.options.motherName && (
+                          <Typography variant="body2"><strong>Mother's Name:</strong> Smt. Sushma Pandey</Typography>
+                        )}
+                      </Box>
+                      <Box>
+                        {selectedAdmitCard.options.admissionNo && (
+                          <Typography variant="body2"><strong>Admission No:</strong> 1045HG</Typography>
+                        )}
+                        {selectedAdmitCard.options.rollNumber && (
+                          <Typography variant="body2"><strong>Roll No:</strong> 31</Typography>
+                        )}
+                        {selectedAdmitCard.options.dob && (
+                          <Typography variant="body2"><strong>DOB:</strong> 24-06-2005</Typography>
+                        )}
+                        {selectedAdmitCard.options.gender && (
+                          <Typography variant="body2"><strong>Gender:</strong> Male</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                    {selectedAdmitCard.options.photo && selectedAdmitCard.sign && (
+                      <img src={selectedAdmitCard.sign} alt="Photo" style={{ width: 100, height: 100, objectFit: 'contain', mt: 1 }} />
+                    )}
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', bgcolor: '#90EE90', p: 1, borderRadius: 1 }}>
+                      Exam Schedule
+                    </Typography>
+                    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+                      <Box sx={{ minWidth: 300, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1 }}>
+                        {selectedAdmitCard.subjects.map((subjectData, index) => (
+                          <React.Fragment key={index}>
+                            <Typography variant="body2" sx={{ border: '1px solid #ddd', p: 1 }}>
+                              {subjectData.subject || `Subject ${index + 1}`}
+                            </Typography>
+                            <Typography variant="body2" sx={{ border: '1px solid #ddd', p: 1 }}>
+                              {subjectData.date || 'N/A'}
+                            </Typography>
+                          </React.Fragment>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Box sx={{ mt: 2, textAlign: 'center' }}>
+                    <Typography variant="body1" sx={{ border: '2px solid #000', p: 1, display: 'inline-block' }}>
+                      {selectedAdmitCard.footerText || 'This admit card is valid only with a valid photo ID.'}
+                    </Typography>
+                    {selectedAdmitCard.sign && (
+                      <img src={selectedAdmitCard.sign} alt="Sign" style={{ width: 100, height: 50, objectFit: 'contain', mt: 1 }} />
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Date: {selectedAdmitCard.printingDate || '2025-06-22 04:55 PM IST'}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
-};
-
-// Styles
-const containerStyle = {
-  padding: '2rem',
-  backgroundColor: "#e8c897",
-  minHeight: '100vh',
-  maxWidth: '1200px',
-  margin: '0 auto',
-  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-};
-
-const sideBySideContainerStyle = {
-  display: 'flex',
-  gap: '2rem',
-  flexWrap: 'wrap',
-  marginBottom: '2rem'
-};
-
-const sideSectionStyle = {
-  flex: '1',
-  background: 'white',
-  borderRadius: '8px',
-  padding: '1.5rem',
-  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-  minWidth: '300px'
-};
-
-const sectionStyle = {
-  background: 'white',
-  borderRadius: '8px',
-  padding: '1.5rem',
-  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-};
-
-const headingStyle = {
-  color: '#333',
-  fontSize: '1.5rem',
-  marginBottom: '1rem',
-  fontWeight: '600'
-};
-
-const formGroupStyle = {
-  marginBottom: '1rem'
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '1rem',
-  color: '#333',
-  fontWeight: '500',
-  marginBottom: '0.5rem'
-};
-
-const requiredStyle = {
-  color: 'red'
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.5rem',
-  borderRadius: '4px',
-  border: '1px solid #ccc',
-  fontSize: '1rem',
-  outline: 'none'
-};
-
-const uploadBoxStyle = {
-  border: '1px dashed #ccc',
-  padding: '1rem',
-  textAlign: 'center',
-  color: '#666',
-  fontSize: '0.9rem',
-  borderRadius: '4px',
-  minHeight: '80px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: 'all 0.3s ease'
-};
-
-const dragActiveStyle = {
-  borderColor: '#007bff',
-  backgroundColor: 'rgba(0, 123, 255, 0.1)'
-};
-
-const toggleContainerStyle = {
-  marginTop: '1rem'
-};
-
-const toggleRowStyle = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '0.5rem 0',
-  borderBottom: '1px solid #eee'
-};
-
-const toggleLabelStyle = {
-  fontSize: '1rem',
-  color: '#333'
-};
-
-const switchStyle = {
-  position: 'relative',
-  display: 'inline-block',
-  width: '40px',
-  height: '20px'
-};
-
-const sliderOnStyle = {
-  position: 'absolute',
-  cursor: 'pointer',
-  top: '0',
-  left: '0',
-  right: '0',
-  bottom: '0',
-  background: '#007bff',
-  borderRadius: '20px',
-  transition: '0.4s',
-  ':before': {
-    position: 'absolute',
-    content: '""',
-    height: '16px',
-    width: '16px',
-    left: '22px',
-    bottom: '2px',
-    background: 'white',
-    borderRadius: '50%',
-    transition: '0.4s'
-  }
-};
-
-const sliderOffStyle = {
-  position: 'absolute',
-  cursor: 'pointer',
-  top: '0',
-  left: '0',
-  right: '0',
-  bottom: '0',
-  background: '#ccc',
-  borderRadius: '20px',
-  transition: '0.4s',
-  ':before': {
-    position: 'absolute',
-    content: '""',
-    height: '16px',
-    width: '16px',
-    left: '2px',
-    bottom: '2px',
-    background: 'white',
-    borderRadius: '50%',
-    transition: '0.4s'
-  }
-};
-
-const buttonContainerStyle = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  marginTop: '1rem'
-};
-
-const saveButtonStyle = {
-  padding: '0.5rem 1.5rem',
-  background: '#6c757d',
-  color: 'white',
-  border: 'none',
-  borderRadius: '4px',
-  fontSize: '1rem',
-  cursor: 'pointer',
-  transition: 'background 0.3s'
-};
-
-const tableWrapperStyle = {
-  overflowX: 'auto'
-};
-
-const tableStyle = {
-  width: '100%',
-  borderCollapse: 'collapse'
-};
-
-const tableHeaderRowStyle = {
-  background: '#f8f9fa'
-};
-
-const tableHeaderStyle = {
-  padding: '0.75rem',
-  textAlign: 'left',
-  borderBottom: '1px solid #dee2e6',
-  color: '#333',
-  fontWeight: '500'
-};
-
-const tableRowStyle = {
-  background: '#ffffff'
-};
-
-const tableCellStyle = {
-  padding: '0.75rem',
-  borderBottom: '1px solid #dee2e6',
-  color: '#555'
-};
-
-const activeDotStyle = {
-  display: 'inline-block',
-  width: '10px',
-  height: '10px',
-  background: '#007bff',
-  borderRadius: '50%'
-};
-
-const inactiveDotStyle = {
-  display: 'inline-block',
-  width: '10px',
-  height: '10px',
-  background: '#ccc',
-  borderRadius: '50%'
-};
-
-const actionButtonStyle = {
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  margin: '0 5px',
-  fontSize: '1rem'
-};
-
-const paginationStyle = {
-  marginTop: '1rem',
-  fontSize: '0.9rem',
-  color: '#666',
-  textAlign: 'right'
-};
-
-const dropdownMenuStyle = {
-  position: 'absolute',
-  right: 0,
-  top: '100%',
-  backgroundColor: 'white',
-  border: '1px solid #ddd',
-  borderRadius: '4px',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  zIndex: 100,
-  minWidth: '120px'
-};
-
-const dropdownItemStyle = {
-  width: '100%',
-  padding: '8px 12px',
-  background: 'none',
-  border: 'none',
-  textAlign: 'left',
-  cursor: 'pointer',
-  fontSize: '14px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  ':hover': {
-    backgroundColor: '#f8f9fa'
-  }
 };
 
 export default AdmitCardPage;

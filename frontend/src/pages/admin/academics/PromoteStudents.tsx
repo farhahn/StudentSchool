@@ -1,89 +1,328 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import styled from 'styled-components';
+import { toast } from 'react-toastify';
+import {
+  updatePromotion,
+  promotePromotions,
+  clearPromotionError,
+} from '../../../redux/promotion/promotionActions';
+import { getAllFclasses } from '../../../redux/fclass/fclassHandle';
+import { fetchAdmissionForms } from '../../../redux/StudentAddmissionDetail/studentAddmissionHandle';
+import { RootState, AppDispatch } from '../../../redux/store';
 
-const PromoteStudents = () => {
-  // Sample data for classes, sections, sessions, and students
-  const classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"];
-  const sections = ["A", "B", "C"];
-  const sessions = ["2017-18", "2018-19", "2019-20"];
+const Container = styled.div`
+  font-family: 'Roboto', sans-serif;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgb(237, 198, 100), rgb(20, 114, 244));
+  min-height: 100vh;
+  position: relative;
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+`;
 
-  const studentData = [
-    { admissionNo: "1001", name: "Hudson", fatherName: "Emrys", dob: "02/06/2019", currentResult: "Pass", nextSessionStatus: "Continue", selected: false },
-    { admissionNo: "1020", name: "Marlie", fatherName: "Lester", dob: "05/22/2019", currentResult: "Pass", nextSessionStatus: "Continue", selected: false },
-    { admissionNo: "2152", name: "Kaylen", fatherName: "Lyndon", dob: "06/19/2019", currentResult: "Pass", nextSessionStatus: "Continue", selected: false },
-    { admissionNo: "120036", name: "Ayan Desai", fatherName: "Abhinand", dob: "10/15/2015", currentResult: "Pass", nextSessionStatus: "Continue", selected: false },
-    { admissionNo: "96302", name: "Jacob Bethell", fatherName: "Brydon", dob: "08/19/2016", currentResult: "Pass", nextSessionStatus: "Continue", selected: false },
-  ];
+const Title = styled.h2`
+  color: rgb(79, 81, 225);
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+`;
 
-  // State for selection criteria
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
+const Section = styled.div`
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  transition: transform 0.3s ease;
+  &:hover {
+    transform: translateY(-5px);
+  }
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+`;
 
-  // State for promotion criteria
-  const [promoteSession, setPromoteSession] = useState("");
-  const [promoteClass, setPromoteClass] = useState("");
-  const [promoteSection, setPromoteSection] = useState("");
+const Label = styled.label`
+  font-size: 16px;
+  color: #34495e;
+  font-weight: 600;
+`;
 
-  // State for student list and table visibility
-  const [students, setStudents] = useState([]);
+const Select = styled.select`
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  width: 100%;
+  max-width: 200px;
+  transition: border-color 0.3s ease;
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+  }
+  @media (max-width: 768px) {
+    max-width: 100%;
+    margin-bottom: 10px;
+  }
+`;
+
+const Button = styled.button`
+  background: #3498db;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background 0.3s ease;
+  &:hover {
+    background: #2980b9;
+  }
+  &:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+  }
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+`;
+
+const TableSection = styled.div`
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  transition: transform 0.3s ease;
+  &:hover {
+    transform: translateY(-5px);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  th, td {
+    padding: 12px;
+    text-align: center;
+    font-size: 15px;
+    border-bottom: 1px solid #ddd;
+  }
+  th {
+    background: #3498db;
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  tr:hover {
+    background-color: #e9ecef;
+  }
+  input[type="checkbox"], input[type="radio"] {
+    margin: 0 5px;
+  }
+  label {
+    font-size: 14px;
+    color: #34495e;
+    margin: 0 5px;
+  }
+  @media (max-width: 768px) {
+    overflow-x: auto;
+  }
+`;
+
+const Notification = styled.div`
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #27ae60;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+  font-weight: bold;
+  opacity: ${props => (props.show ? '1' : '0')};
+  transition: opacity 0.5s ease;
+`;
+
+interface Promotion {
+  _id: string;
+  admissionNo: string;
+  name: string;
+  fatherName: string;
+  dob: string;
+  class: string;
+  section: string;
+  currentResult: 'Pass' | 'Fail';
+  nextSessionStatus: 'Continue' | 'Leave';
+  session: string;
+  admin: string;
+  selected: boolean;
+}
+
+const PromoteStudents: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { promotionsList, loading, error } = useSelector((state: RootState) => state.promotion);
+  const { currentUser } = useSelector((state: RootState) => state.user);
+  const { fclassesList, error: fclassError } = useSelector((state: RootState) => state.fclass);
+  const { admissionForms, error: admissionError } = useSelector((state: RootState) => state.admissionForms);
+  const adminID = currentUser?._id;
+
+  const sessions = ['2023-24', '2024-25', '2025-26'];
+
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [promoteSession, setPromoteSession] = useState('');
+  const [promoteClass, setPromoteClass] = useState('');
+  const [promoteSection, setPromoteSection] = useState('');
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [showTable, setShowTable] = useState(false);
-
-  // State for popup notification
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState('');
 
-  // Handle search button click
+  useEffect(() => {
+    if (!adminID || !/^[0-9a-fA-F]{24}$/.test(adminID)) {
+      toast.error('Invalid admin ID. Please log in again.', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    dispatch(getAllFclasses(adminID));
+    dispatch(fetchAdmissionForms(adminID));
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    if (error || fclassError || admissionError) {
+      const errorMessage = error || fclassError || admissionError || 'An error occurred';
+      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
+      dispatch(clearPromotionError());
+    }
+
+    console.log('fclassesList:', fclassesList); // Debug classes
+    const mappedPromotions = admissionForms
+      .filter(form => {
+        const className = typeof form.classId === 'object' && form.classId ? form.classId.name : 
+                         fclassesList.find(cls => cls._id === form.classId)?.name || '';
+        return (
+          (!selectedClass || className === selectedClass) &&
+          (!selectedSection || form.section === selectedSection) &&
+          (!promoteSession || true)
+        );
+      })
+      .map(form => ({
+        _id: form._id,
+        admissionNo: form.admissionNo,
+        name: `${form.firstName} ${form.lastName}`,
+        fatherName: form.parents.father.name,
+        dob: form.dob,
+        class: typeof form.classId === 'object' && form.classId ? form.classId.name : 
+               fclassesList.find(cls => cls._id === form.classId)?.name || '',
+        section: form.section,
+        currentResult: 'Pass' as 'Pass' | 'Fail',
+        nextSessionStatus: 'Continue' as 'Continue' | 'Leave',
+        session: promoteSession || sessions[0] || '',
+        admin: adminID,
+        selected: false,
+      }));
+
+    setPromotions(mappedPromotions);
+    if (showTable && mappedPromotions.length === 0) {
+      toast.warn('No promotions found for the selected criteria', { position: 'top-right', autoClose: 3000 });
+    }
+  }, [error, fclassError, admissionError, admissionForms, fclassesList, selectedClass, selectedSection, promoteSession, adminID, dispatch, showTable]);
+
+  const classOptions = fclassesList.map(cls => ({ value: cls.name, label: cls.name }));
+  const sectionOptions = fclassesList
+    .find(cls => cls.name === selectedClass)
+    ?.sections.map(sec => ({ value: sec, label: sec })) || [];
+  const promoteSectionOptions = fclassesList
+    .find(cls => cls.name === promoteClass)
+    ?.sections.map(sec => ({ value: sec, label: sec })) || [];
+
+  console.log('promoteSectionOptions:', promoteSectionOptions); // Debug sections
+
   const handleSearch = () => {
+    if (!fclassesList.length || !admissionForms.length) {
+      toast.error('Classes or admission forms are still loading. Please wait.', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
     if (selectedClass && selectedSection && promoteSession && promoteClass && promoteSection) {
       setShowTable(true);
-      setStudents(studentData); // Load the student data
     } else {
-      alert("Please select all criteria before searching.");
+      toast.error('Please select all criteria before searching.', { position: 'top-right', autoClose: 3000 });
     }
   };
 
-  // Handle student selection
-  const handleStudentSelect = (index) => {
-    const updatedStudents = [...students];
-    updatedStudents[index].selected = !updatedStudents[index].selected;
-    setStudents(updatedStudents);
+  const handlePromotionSelect = (index: number) => {
+    const updatedPromotions = [...promotions];
+    updatedPromotions[index].selected = !updatedPromotions[index].selected;
+    setPromotions(updatedPromotions);
   };
 
-  // Handle current result change
-  const handleCurrentResultChange = (index, result) => {
-    const updatedStudents = [...students];
-    updatedStudents[index].currentResult = result;
-    setStudents(updatedStudents);
+  const handleCurrentResultChange = async (index: number, result: 'Pass' | 'Fail') => {
+    const promotion = promotions[index];
+    try {
+      await dispatch(updatePromotion(promotion._id, { currentResult: result }, adminID));
+      const updatedPromotions = [...promotions];
+      updatedPromotions[index].currentResult = result;
+      setPromotions(updatedPromotions);
+      toast.success('Promotion result updated successfully', { position: 'top-right', autoClose: 3000 });
+    } catch (error) {
+      toast.error('Failed to update promotion result', { position: 'top-right', autoClose: 3000 });
+    }
   };
 
-  // Handle next session status change
-  const handleNextSessionStatusChange = (index, status) => {
-    const updatedStudents = [...students];
-    updatedStudents[index].nextSessionStatus = status;
-    setStudents(updatedStudents);
+  const handleNextSessionStatusChange = async (index: number, status: 'Continue' | 'Leave') => {
+    const promotion = promotions[index];
+    try {
+      await dispatch(updatePromotion(promotion._id, { nextSessionStatus: status }, adminID));
+      const updatedPromotions = [...promotions];
+      updatedPromotions[index].nextSessionStatus = status;
+      setPromotions(updatedPromotions);
+      toast.success('Promotion status updated successfully', { position: 'top-right', autoClose: 3000 });
+    } catch (error) {
+      toast.error('Failed to update promotion status', { position: 'top-right', autoClose: 3000 });
+    }
   };
 
-  // Handle promote button click
-  const handlePromote = () => {
-    const selectedStudents = students.filter(student => student.selected);
-    if (selectedStudents.length > 0) {
-      const promotedStudentNames = selectedStudents.map(student => student.name).join(", ");
-      setNotificationMessage(`Successfully promoted: ${promotedStudentNames}`);
+  const handlePromote = async () => {
+    const selectedPromotions = promotions.filter(promotion => promotion.selected);
+    if (selectedPromotions.length === 0) {
+      toast.error('Please select at least one record to promote.', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+
+    const promotionIds = selectedPromotions.map(promotion => promotion._id);
+    try {
+      const response = await dispatch(promotePromotions(promotionIds, promoteClass, promoteSection, promoteSession, adminID));
+      setNotificationMessage(response.payload.message);
       setShowNotification(true);
-
-      // Reset the form and table
       setShowTable(false);
-      setSelectedClass("");
-      setSelectedSection("");
-      setPromoteSession("");
-      setPromoteClass("");
-      setPromoteSection("");
-      setStudents([]);
-    } else {
-      alert("Please select at least one student to promote.");
+      setSelectedClass('');
+      setSelectedSection('');
+      setPromoteSession('');
+      setPromoteClass('');
+      setPromoteSection('');
+      setPromotions(promotions.map(p => ({ ...p, selected: false }))); // Clear selections
+      dispatch(fetchAdmissionForms(adminID));
+      toast.success('Promotions completed successfully', { position: 'top-right', autoClose: 3000 });
+    } catch (error) {
+      toast.error(error.message || 'Failed to promote students', { position: 'top-right', autoClose: 3000 });
     }
   };
 
-  // Automatically hide the notification after 3 seconds
   useEffect(() => {
     if (showNotification) {
       const timer = setTimeout(() => {
@@ -93,245 +332,96 @@ const PromoteStudents = () => {
     }
   }, [showNotification]);
 
+  if (!fclassesList.length || !admissionForms.length) {
+    return <Container>Loading classes and admission forms...</Container>;
+  }
+
   return (
-    <div className="promote-student-container">
-      <style>
-        {`
-          .promote-student-container {
-            font-family: 'Arial', sans-serif;
-            padding: 20px;
-            background: linear-gradient(135deg,rgb(237, 198, 100),rgb(20, 114, 244));
-            min-height: 100vh;
-            position: relative;
-          }
+    <Container>
+      {loading && <div>Loading...</div>}
+      {error && <div style={{ color: '#e74c3c', textAlign: 'center' }}>{error}</div>}
 
-          h2 {
-            color:rgb(79, 81, 225);
-            font-weight: bold;
-            margin-bottom: 20px;
-            text-align: left;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-          }
-
-          .criteria-section, .promotion-section, .table-section {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            transition: transform 0.3s ease;
-          }
-
-          .criteria-section:hover, .promotion-section:hover, .table-section:hover {
-            transform: translateY(-5px);
-          }
-
-          .criteria-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-          }
-
-          .promotion-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-          }
-
-          .criteria-section label, .promotion-section label {
-            font-size: 16px;
-            color: #34495e;
-            margin-right: 10px;
-            font-weight: 600;
-          }
-
-          .criteria-section select, .promotion-section select {
-            padding: 8px;
-            font-size: 14px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            transition: border-color 0.3s ease;
-          }
-
-          .criteria-section select:focus, .promotion-section select:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
-          }
-
-          .search-btn, .promote-btn {
-            background: #3498db;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: background 0.3s ease;
-          }
-
-          .search-btn:hover, .promote-btn:hover {
-            background: #2980b9;
-          }
-
-          .table-section table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-          }
-
-          .table-section th, .table-section td {
-            padding: 12px;
-            text-align: center;
-            font-size: 15px;
-            border-bottom: 1px solid #ddd;
-          }
-
-          .table-section th {
-            background: #3498db;
-            color: white;
-            font-weight: bold;
-            text-transform: uppercase;
-          }
-
-          .table-section tr:nth-child(even) {
-            background-color: #f9f9f9;
-          }
-
-          .table-section tr:hover {
-            background-color: #e9ecef;
-          }
-
-          .table-section input[type="checkbox"], .table-section input[type="radio"] {
-            margin: 0 5px;
-          }
-
-          .table-section label {
-            font-size: 14px;
-            color: #34495e;
-            margin: 0 5px;
-          }
-
-          .notification {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #27ae60;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            font-size: 14px;
-            font-weight: bold;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-          }
-
-          .notification.show {
-            opacity: 1;
-          }
-
-          @media (max-width: 768px) {
-            .criteria-section, .promotion-section {
-              flex-direction: column;
-              align-items: flex-start;
-            }
-
-            .criteria-section select, .promotion-section select {
-              width: 100%;
-              margin-bottom: 10px;
-            }
-
-            .search-btn, .promote-btn {
-              width: 100%;
-            }
-
-            .table-section {
-              overflow-x: auto;
-            }
-          }
-        `}
-      </style>
-
-      {/* Select Criteria Section */}
-      <h2>Select Criteria</h2>
-      <div className="criteria-section">
+      <Title>Select Criteria</Title>
+      <Section>
         <div>
-          <label>Class <span style={{ color: 'red' }}>*</span></label>
-          <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+          <Label>Class <span style={{ color: 'red' }}>*</span></Label>
+          <Select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
             <option value="">Select</option>
-            {classes.map((className) => (
-              <option key={className} value={className}>
-                {className}
+            {classOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
-          <label>Section <span style={{ color: 'red' }}>*</span></label>
-          <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)}>
+          <Label>Section <span style={{ color: 'red' }}>*</span></Label>
+          <Select
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+            disabled={!selectedClass}
+          >
             <option value="">Select</option>
-            {sections.map((section) => (
-              <option key={section} value={section}>
-                {section}
+            {sectionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-      </div>
+      </Section>
 
-      {/* Promote Students in Next Session Section */}
-      <h2>Promote Students in Next Session</h2>
-      <div className="promotion-section">
+      <Title>Promote in Next Session</Title>
+      <Section>
         <div>
-          <label>Promote in Session <span style={{ color: 'red' }}>*</span></label>
-          <select value={promoteSession} onChange={(e) => setPromoteSession(e.target.value)}>
+          <Label>Promote in Session <span style={{ color: 'red' }}>*</span></Label>
+          <Select value={promoteSession} onChange={(e) => setPromoteSession(e.target.value)}>
             <option value="">Select</option>
             {sessions.map((session) => (
               <option key={session} value={session}>
                 {session}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
-          <label>Class <span style={{ color: 'red' }}>*</span></label>
-          <select value={promoteClass} onChange={(e) => setPromoteClass(e.target.value)}>
+          <Label>Class <span style={{ color: 'red' }}>*</span></Label>
+          <Select value={promoteClass} onChange={(e) => setPromoteClass(e.target.value)}>
             <option value="">Select</option>
-            {classes.map((className) => (
-              <option key={className} value={className}>
-                {className}
+            {classOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
-          <label>Section <span style={{ color: 'red' }}>*</span></label>
-          <select value={promoteSection} onChange={(e) => setPromoteSection(e.target.value)}>
+          <Label>Section <span style={{ color: 'red' }}>*</span></Label>
+          <Select
+            value={promoteSection}
+            onChange={(e) => setPromoteSection(e.target.value)}
+            disabled={!promoteClass}
+          >
             <option value="">Select</option>
-            {sections.map((section) => (
-              <option key={section} value={section}>
-                {section}
+            {promoteSectionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
-        <button className="search-btn" onClick={handleSearch}>Search</button>
-      </div>
+        <Button onClick={handleSearch}>Search</Button>
+      </Section>
 
-      {/* Student List Table */}
-      {showTable && students.length > 0 && (
-        <div className="table-section">
-          <h2>Student List</h2>
+      {showTable && promotions.length > 0 && (
+        <TableSection>
+          <Title>Promotion List</Title>
           <table>
             <thead>
               <tr>
                 <th></th>
                 <th>Admission No</th>
-                <th>Student Name</th>
+                <th>Name</th>
                 <th>Father Name</th>
                 <th>Date of Birth</th>
                 <th>Current Result</th>
@@ -339,26 +429,26 @@ const PromoteStudents = () => {
               </tr>
             </thead>
             <tbody>
-              {students.map((student, index) => (
+              {promotions.map((promotion, index) => (
                 <tr key={index}>
                   <td>
                     <input
                       type="checkbox"
-                      checked={student.selected}
-                      onChange={() => handleStudentSelect(index)}
+                      checked={promotion.selected}
+                      onChange={() => handlePromotionSelect(index)}
                     />
                   </td>
-                  <td>{student.admissionNo}</td>
-                  <td>{student.name}</td>
-                  <td>{student.fatherName}</td>
-                  <td>{student.dob}</td>
+                  <td>{promotion.admissionNo}</td>
+                  <td>{promotion.name}</td>
+                  <td>{promotion.fatherName}</td>
+                  <td>{promotion.dob}</td>
                   <td>
                     <label>
                       <input
                         type="radio"
                         name={`currentResult-${index}`}
-                        checked={student.currentResult === "Pass"}
-                        onChange={() => handleCurrentResultChange(index, "Pass")}
+                        checked={promotion.currentResult === 'Pass'}
+                        onChange={() => handleCurrentResultChange(index, 'Pass')}
                       />
                       Pass
                     </label>
@@ -366,8 +456,8 @@ const PromoteStudents = () => {
                       <input
                         type="radio"
                         name={`currentResult-${index}`}
-                        checked={student.currentResult === "Fail"}
-                        onChange={() => handleCurrentResultChange(index, "Fail")}
+                        checked={promotion.currentResult === 'Fail'}
+                        onChange={() => handleCurrentResultChange(index, 'Fail')}
                       />
                       Fail
                     </label>
@@ -377,8 +467,8 @@ const PromoteStudents = () => {
                       <input
                         type="radio"
                         name={`nextSessionStatus-${index}`}
-                        checked={student.nextSessionStatus === "Continue"}
-                        onChange={() => handleNextSessionStatusChange(index, "Continue")}
+                        checked={promotion.nextSessionStatus === 'Continue'}
+                        onChange={() => handleNextSessionStatusChange(index, 'Continue')}
                       />
                       Continue
                     </label>
@@ -386,8 +476,8 @@ const PromoteStudents = () => {
                       <input
                         type="radio"
                         name={`nextSessionStatus-${index}`}
-                        checked={student.nextSessionStatus === "Leave"}
-                        onChange={() => handleNextSessionStatusChange(index, "Leave")}
+                        checked={promotion.nextSessionStatus === 'Leave'}
+                        onChange={() => handleNextSessionStatusChange(index, 'Leave')}
                       />
                       Leave
                     </label>
@@ -396,17 +486,19 @@ const PromoteStudents = () => {
               ))}
             </tbody>
           </table>
-          <button className="promote-btn" onClick={handlePromote}>Promote</button>
-        </div>
+          <Button
+            onClick={handlePromote}
+            disabled={promotions.filter(p => p.selected).length === 0 || !promoteClass || !promoteSection || !promoteSession}
+          >
+            Promote
+          </Button>
+        </TableSection>
       )}
 
-      {/* Popup Notification */}
-      {showNotification && (
-        <div className={`notification ${showNotification ? 'show' : ''}`}>
-          {notificationMessage}
-        </div>
-      )}
-    </div>
+      <Notification show={showNotification}>
+        {notificationMessage}
+      </Notification>
+    </Container>
   );
 };
 

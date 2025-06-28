@@ -1,108 +1,264 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+} from '@mui/material';
+import {
+  getAllClassTeacherAssignments,
+  createClassTeacherAssignment,
+  updateClassTeacherAssignment,
+  deleteClassTeacherAssignment,
+  clearClassTeacherAssignmentError,
+} from '../../../redux/classteacherassign/classTeacherAssignmentAction';
+import { getAllFclasses } from '../../../redux/fclass/fclassHandle';
+import { getAllSections } from '../../../redux/sectionRelated/sectionHandle';
+import { fetchTeachers } from '../../../redux/TeacherAllRelated/teacherManageActions';
+import { RootState, AppDispatch } from '../../../redux/store';
 
-const AssignClassTeacher = () => {
-  // Sample data for classes, sections, and teachers
-  const classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"];
-  const sections = ["A", "B", "D"];
-  const teachers = [
-    "Shivam Verma (9002)",
-    "Jason Sharton (90006)",
-    "Albert Thomas (54545454)",
-  ];
+// Define interfaces for TypeScript
+interface Fclass {
+  _id: string;
+  name: string;
+  sections: string[];
+}
 
-  // State for form inputs
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
-  const [selectedTeacher, setSelectedTeacher] = useState("");
-  const [classError, setClassError] = useState("");
-  const [sectionError, setSectionError] = useState("");
+interface Section {
+  _id: string;
+  name: string;
+  school?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
+}
 
-  // State for the class teacher list
-  const [classTeachers, setClassTeachers] = useState([
-    { class: "Class 1", section: "A", teacher: "Shivam Verma (9002)" },
-    { class: "Class 2", section: "A", teacher: "Jason Sharton (90006)" },
-    { class: "Class 3", section: "A", teacher: "Jason Sharton (90006)" },
-    { class: "Class 4", section: "A", teacher: "Jason Sharton (90006)" },
-    { class: "Class 4", section: "B", teacher: "Shivam Verma (9002)" },
-    { class: "Class 5", section: "A", teacher: "Shivam Verma (9002)" },
-    { class: "Class 5", section: "D", teacher: "Shivam Verma (9002)" },
-  ]);
+interface Teacher {
+  _id: string;
+  fullName: string;
+  teacherId: string;
+}
 
-  // State for search and pagination
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+interface ClassTeacherAssignment {
+  _id: string;
+  class: string;
+  section: string;
+  teacher: {
+    _id: string;
+    fullName: string;
+    teacherId: string;
+  };
+  admin: string;
+}
+
+interface Option {
+  value: string;
+  label: string;
+}
+
+const AssignClassTeacher: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { assignmentsList, loading, error } = useSelector((state: RootState) => state.classTeacherAssignment || {});
+  const { fclassesList, error: fclassError } = useSelector((state: RootState) => state.fclass || {});
+  const { sectionsList, error: sectionsSliceError } = useSelector((state: RootState) => state.sections || {});
+  const { teachers, error: teacherSliceError } = useSelector((state: RootState) => state.teacherManage || {});
+  const { currentUser } = useSelector((state: RootState) => state.user || {});
+  const adminID = currentUser?._id;
+
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedSection, setSelectedSection] = useState<string>('');
+  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
+  const [classError, setClassError] = useState<string>('');
+  const [sectionError, setSectionError] = useState<string>('');
+  const [teacherError, setTeacherError] = useState<string>('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const recordsPerPage = 5;
 
-  // Handle form submission
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (adminID) {
+      dispatch(getAllClassTeacherAssignments(adminID));
+      dispatch(fetchTeachers(adminID));
+      dispatch(getAllFclasses(adminID));
+      dispatch(getAllSections(adminID));
+    } else {
+      toast.error('Please log in to view class teacher assignments', { position: 'top-right', autoClose: 3000 });
+    }
+  }, [dispatch, adminID]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error, { position: 'top-right', autoClose: 3000 });
+      dispatch(clearClassTeacherAssignmentError());
+    }
+    if (fclassError) {
+      toast.error(`Failed to load classes: ${fclassError}`, { position: 'top-right', autoClose: 3000 });
+    }
+    if (sectionsSliceError) {
+      toast.error(`Failed to load sections: ${sectionsSliceError}`, { position: 'top-right', autoClose: 3000 });
+    }
+    if (teacherSliceError) {
+      toast.error(`Failed to load teachers: ${teacherSliceError}`, { position: 'top-right', autoClose: 3000 });
+    }
+  }, [error, fclassError, sectionsSliceError, teacherSliceError, dispatch]);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let valid = true;
 
+    if (!adminID) {
+      toast.error('Please log in to assign class teachers', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+
     if (!selectedClass) {
-      setClassError("The Class field is required.");
+      setClassError('The Class field is required.');
       valid = false;
     } else {
-      setClassError("");
+      setClassError('');
     }
 
     if (!selectedSection) {
-      setSectionError("The Section field is required.");
+      setSectionError('The Section field is required.');
       valid = false;
     } else {
-      setSectionError("");
+      const selectedClassData = fclassesList.find((cls: Fclass) => cls._id === selectedClass);
+      if (selectedClassData && !selectedClassData.sections.includes(selectedSection)) {
+        setSectionError('Invalid section for selected class');
+        valid = false;
+      } else {
+        setSectionError('');
+      }
     }
 
-    if (valid && selectedTeacher) {
-      setClassTeachers([
-        ...classTeachers,
-        { class: selectedClass, section: selectedSection, teacher: selectedTeacher },
-      ]);
-      setSelectedClass("");
-      setSelectedSection("");
-      setSelectedTeacher("");
+    if (!selectedTeacher) {
+      setTeacherError('The Teacher field is required.');
+      valid = false;
+    } else {
+      setTeacherError('');
+    }
+
+    if (valid) {
+      setIsDialogOpen(true);
     }
   };
 
-  // Handle teacher checkbox selection
-  const handleTeacherChange = (teacher) => {
-    setSelectedTeacher(teacher === selectedTeacher ? "" : teacher);
+  const handleConfirmSubmit = () => {
+    const selectedClassData = fclassesList.find((cls: Fclass) => cls._id === selectedClass);
+    const payload = {
+      class: selectedClassData?.name || selectedClass,
+      section: selectedSection,
+      teacherId: selectedTeacher,
+    };
+
+    if (editId) {
+      dispatch(updateClassTeacherAssignment({ id: editId, assignment: payload, adminID }))
+        .then(() => {
+          toast.success('Class teacher assignment updated successfully', { position: 'top-right', autoClose: 3000 });
+          resetForm();
+          setIsDialogOpen(false);
+        })
+        .catch((err: any) => {
+          toast.error(err.message || 'Failed to update assignment', { position: 'top-right', autoClose: 3000 });
+          setIsDialogOpen(false);
+        });
+    } else {
+      dispatch(createClassTeacherAssignment(payload, adminID))
+        .then(() => {
+          toast.success('Class teacher assignment added successfully', { position: 'top-right', autoClose: 3000 });
+          resetForm();
+          setIsDialogOpen(false);
+        })
+        .catch((err: any) => {
+          toast.error(err.message || 'Failed to add assignment', { position: 'top-right', autoClose: 3000 });
+          setIsDialogOpen(false);
+        });
+    }
   };
 
-  // Handle delete
-  const handleDelete = (index) => {
-    setClassTeachers(classTeachers.filter((_, i) => i !== index));
+  const resetForm = () => {
+    setSelectedClass('');
+    setSelectedSection('');
+    setSelectedTeacher('');
+    setEditId(null);
+    setClassError('');
+    setSectionError('');
+    setTeacherError('');
   };
 
-  // Handle edit (for simplicity, we'll just populate the form with the selected row's data)
-  const handleEdit = (index) => {
-    const teacher = classTeachers[index];
-    setSelectedClass(teacher.class);
-    setSelectedSection(teacher.section);
-    setSelectedTeacher(teacher.teacher);
-    handleDelete(index); // Remove the row so it can be re-added after editing
+  const handleEdit = (assignment: ClassTeacherAssignment) => {
+    const classData = fclassesList.find((cls: Fclass) => cls.name === assignment.class);
+    setSelectedClass(classData?._id || '');
+    setSelectedSection(assignment.section);
+    setSelectedTeacher(assignment.teacher._id);
+    setEditId(assignment._id);
+    setIsDialogOpen(true);
   };
 
-  // Handle search
-  const filteredTeachers = classTeachers.filter((teacher) =>
-    teacher.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.teacher.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleDelete = (id: string) => {
+    if (!adminID) {
+      toast.error('Please log in to delete assignments', { position: 'top-right', autoClose: 3000 });
+      return;
+    }
+    if (window.confirm('Are you sure you want to delete this assignment?')) {
+      dispatch(deleteClassTeacherAssignment(id, adminID))
+        .then(() => {
+          toast.info('Class teacher assignment deleted successfully', { position: 'top-right', autoClose: 3000 });
+        })
+        .catch((err: any) => {
+          toast.error(err.message || 'Failed to delete assignment', { position: 'top-right', autoClose: 3000 });
+        });
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const filteredAssignments = assignmentsList.filter((assignment: ClassTeacherAssignment) =>
+    assignment.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment.teacher?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    assignment.teacher?.teacherId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Pagination logic
-  const totalRecords = filteredTeachers.length;
+  const totalRecords = filteredAssignments.length;
   const totalPages = Math.ceil(totalRecords / recordsPerPage);
   const startIndex = (currentPage - 1) * recordsPerPage;
-  const paginatedTeachers = filteredTeachers.slice(startIndex, startIndex + recordsPerPage);
+  const paginatedAssignments = filteredAssignments.slice(startIndex, startIndex + recordsPerPage);
+
+  // Derive class, section, and teacher options
+  const classOptions: Option[] = fclassesList.map((cls: Fclass) => ({
+    value: cls._id,
+    label: cls.name,
+  }));
+  const sectionOptions: Option[] = selectedClass
+    ? fclassesList
+        .find((cls: Fclass) => cls._id === selectedClass)
+        ?.sections.map((sec: string) => ({ value: sec, label: sec })) || []
+    : sectionsList.map((sec: Section) => ({ value: sec.name, label: sec.name }));
+  const teacherOptions: { _id: string; label: string }[] = teachers.map((teacher: Teacher) => ({
+    _id: teacher._id,
+    label: `${teacher.fullName} (${teacher.teacherId})`,
+  }));
 
   return (
     <div className="assign-class-teacher-container">
+      <ToastContainer />
       <style>
         {`
           .assign-class-teacher-container {
             font-family: 'Arial', sans-serif;
             padding: 20px;
-            background: linear-gradient(135deg,rgb(228, 178, 62), #cfdef3);
+            background: linear-gradient(135deg, rgb(228, 178, 62), #cfdef3);
             min-height: 100vh;
             display: flex;
             justify-content: space-between;
@@ -111,7 +267,7 @@ const AssignClassTeacher = () => {
 
           .form-section, .table-section {
             background: white;
-            border-radius: 15px;
+            border-radius: 15px Nes;
             padding: 20px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease;
@@ -294,19 +450,35 @@ const AssignClassTeacher = () => {
         `}
       </style>
 
+      {fclassesList.length === 0 && !loading && (
+        <div style={{ color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }}>
+          No classes available. Please add classes first.
+        </div>
+      )}
+
+      {teachers.length === 0 && !loading && (
+        <div style={{ color: '#e74c3c', textAlign: 'center', marginBottom: '1rem' }}>
+          No teachers available. Please add teachers first.
+        </div>
+      )}
+
       {/* Form Section */}
       <div className="form-section">
-        <h2>Assign Class Teacher</h2>
+        <h2>{editId ? 'Edit Class Teacher Assignment' : 'Assign Class Teacher'}</h2>
         <form onSubmit={handleSubmit}>
           <label>Class <span style={{ color: 'red' }}>*</span></label>
           <select
             value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
+            onChange={(e) => {
+              setSelectedClass(e.target.value);
+              setSelectedSection(''); // Reset section when class changes
+            }}
+            disabled={loading || !adminID}
           >
             <option value="">Select</option>
-            {classes.map((className) => (
-              <option key={className} value={className}>
-                {className}
+            {classOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -316,11 +488,12 @@ const AssignClassTeacher = () => {
           <select
             value={selectedSection}
             onChange={(e) => setSelectedSection(e.target.value)}
+            disabled={loading || !adminID || !selectedClass}
           >
             <option value="">Select</option>
-            {sections.map((section) => (
-              <option key={section} value={section}>
-                {section}
+            {sectionOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -328,19 +501,23 @@ const AssignClassTeacher = () => {
 
           <label>Class Teacher <span style={{ color: 'red' }}>*</span></label>
           <div className="teacher-checkboxes">
-            {teachers.map((teacher) => (
-              <label key={teacher}>
+            {teacherOptions.map((teacher) => (
+              <label key={teacher._id}>
                 <input
                   type="checkbox"
-                  checked={selectedTeacher === teacher}
-                  onChange={() => handleTeacherChange(teacher)}
+                  checked={selectedTeacher === teacher._id}
+                  onChange={() => setSelectedTeacher(teacher._id === selectedTeacher ? '' : teacher._id)}
+                  disabled={loading || !adminID}
                 />
-                {teacher}
+                {teacher.label}
               </label>
             ))}
           </div>
+          {teacherError && <div className="error">{teacherError}</div>}
 
-          <button type="submit" className="save-btn">Save</button>
+          <button type="submit" className="save-btn" disabled={loading || !adminID}>
+            {editId ? 'Update' : 'Save'}
+          </button>
         </form>
       </div>
 
@@ -353,6 +530,7 @@ const AssignClassTeacher = () => {
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          disabled={loading}
         />
         <table>
           <thead>
@@ -364,48 +542,83 @@ const AssignClassTeacher = () => {
             </tr>
           </thead>
           <tbody>
-            {paginatedTeachers.map((teacher, index) => (
-              <tr key={index}>
-                <td>{teacher.class}</td>
-                <td>{teacher.section}</td>
-                <td>{teacher.teacher}</td>
-                <td>
-                  <button
-                    className="action-btn edit-btn"
-                    onClick={() => handleEdit(startIndex + index)}
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="action-btn delete-btn"
-                    onClick={() => handleDelete(startIndex + index)}
-                    title="Delete"
-                  >
-                    ❌
-                  </button>
-                </td>
+            {loading ? (
+              <tr>
+                <td colSpan={4}>Loading...</td>
               </tr>
-            ))}
+            ) : paginatedAssignments.length === 0 ? (
+              <tr>
+                <td colSpan={4}>No assignments found</td>
+              </tr>
+            ) : (
+              paginatedAssignments.map((assignment: ClassTeacherAssignment) => (
+                <tr key={assignment._id}>
+                  <td>{assignment.class}</td>
+                  <td>{assignment.section}</td>
+                  <td>{assignment.teacher ? `${assignment.teacher.fullName} (${assignment.teacher.teacherId})` : 'N/A'}</td>
+                  <td>
+                    <button
+                      className="action-btn edit-btn"
+                      onClick={() => handleEdit(assignment)}
+                      title="Edit"
+                      disabled={loading || !adminID}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="action-btn delete-btn"
+                      onClick={() => handleDelete(assignment._id)}
+                      title="Delete"
+                      disabled={loading || !adminID}
+                    >
+                      ❌
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
         <div className="pagination">
-          <p>Records: {startIndex + 1} to {Math.min(startIndex + recordsPerPage, totalRecords)} of {totalRecords}</p>
+          <p>
+            Records: {startIndex + 1} to {Math.min(startIndex + recordsPerPage, totalRecords)} of {totalRecords}
+          </p>
           <button
             onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || loading}
           >
-            &lt;
+            {'<'}
           </button>
           <span>{currentPage}</span>
           <button
             onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || loading}
           >
-            &gt;
+            {'>'}
           </button>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{editId ? 'Confirm Update Assignment' : 'Confirm Add Assignment'}</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {editId ? 'Are you sure you want to update this assignment?' : 'Are you sure you want to add this assignment?'}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Class: {classOptions.find((opt) => opt.value === selectedClass)?.label || 'N/A'}<br />
+            Section: {selectedSection}<br />
+            Teacher: {teacherOptions.find((t) => t._id === selectedTeacher)?.label || 'N/A'}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="error">Cancel</Button>
+          <Button onClick={handleConfirmSubmit} color="success">
+            {editId ? 'Update' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

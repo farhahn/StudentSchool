@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, InputAdornment, Snackbar, Alert, Radio, RadioGroup, FormControlLabel
+  IconButton, InputAdornment, Snackbar, Alert, Radio, RadioGroup, FormControlLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -11,22 +12,25 @@ import {
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  getAllSubjects,
-  createSubject,
-  updateSubject,
-  deleteSubject,
-  clearSubjectError
-} from '../../../redux/subjectRelated/subjectHandle.js';
+  getAllSubjectives,
+  createSubjective,
+  updateSubjective,
+  deleteSubjective,
+  clearSubjectiveError
+} from '../../../redux/subjective/subjectiveHandle';
 
-const Subjects = () => {
-  const [subjectName, setSubjectName] = useState('');
-  const [subjectType, setSubjectType] = useState('Theory');
-  const [subjectCode, setSubjectCode] = useState('');
+const SubjectiveList = () => {
+  const [subjectiveName, setSubjectiveName] = useState('');
+  const [subjectiveType, setSubjectiveType] = useState('Theory');
+  const [subjectiveCode, setSubjectiveCode] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editId, setEditId] = useState(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   const dispatch = useDispatch();
-  const { subjectsList, loading, error } = useSelector((state) => state.subject);
+  const { subjectivesList, loading, error } = useSelector((state) => state.subjective || {});
+  const userState = useSelector((state) => state.user || {});
+  const adminID = userState.currentUser?._id;
 
   const [snack, setSnack] = useState({
     open: false,
@@ -35,83 +39,130 @@ const Subjects = () => {
   });
 
   useEffect(() => {
-    dispatch(getAllSubjects());
-  }, [dispatch]);
+    if (adminID) {
+      dispatch(getAllSubjectives(adminID));
+    } else {
+      setSnack({ open: true, message: 'Please log in to view subjectives', severity: 'error' });
+    }
+  }, [dispatch, adminID]);
 
   useEffect(() => {
     if (error) {
       setSnack({ open: true, message: error, severity: 'error' });
-      dispatch(clearSubjectError());
+      dispatch(clearSubjectiveError());
     }
   }, [error, dispatch]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!subjectName.trim() || !subjectCode.trim()) return;
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to add/update subjectives', severity: 'error' });
+      return;
+    }
+    if (!subjectiveName.trim() || !subjectiveCode.trim()) {
+      setSnack({ open: true, message: 'Name and code are required', severity: 'warning' });
+      return;
+    }
 
     const payload = { 
-      name: subjectName.trim(), 
-      code: subjectCode.trim(),
-      type: subjectType
+      name: subjectiveName.trim(), 
+      code: subjectiveCode.trim(),
+      type: subjectiveType
     };
 
-    const exists = Array.isArray(subjectsList) && subjectsList.some(
-      (sub) => sub.code.toLowerCase() === subjectCode.trim().toLowerCase() && 
+    const exists = Array.isArray(subjectivesList) && subjectivesList.some(
+      (sub) => sub.code.toLowerCase() === subjectiveCode.trim().toLowerCase() && 
               (!editId || sub._id !== editId)
     );
 
     if (exists) {
-      setSnack({ open: true, message: 'Subject with this code already exists!', severity: 'warning' });
+      setSnack({ open: true, message: 'Subjective with this code already exists!', severity: 'warning' });
       return;
     }
 
+    setIsPopupOpen(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    const payload = { 
+      name: subjectiveName.trim(), 
+      code: subjectiveCode.trim(),
+      type: subjectiveType
+    };
+
     if (editId) {
-      dispatch(updateSubject(editId, payload))
+      dispatch(updateSubjective({ id: editId, subjective: payload, adminID }))
         .then(() => {
           setEditId(null);
           resetForm();
-          dispatch(getAllSubjects());
-          setSnack({ open: true, message: 'Subject updated successfully', severity: 'success' });
+          dispatch(getAllSubjectives(adminID));
+          setSnack({ open: true, message: 'Subjective updated successfully', severity: 'success' });
+          setIsPopupOpen(false);
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to update subjective', severity: 'error' });
+          setIsPopupOpen(false);
         });
     } else {
-      dispatch(createSubject(payload))
+      dispatch(createSubjective(payload, adminID))
         .then(() => {
           resetForm();
-          dispatch(getAllSubjects());
-          setSnack({ open: true, message: 'Subject created successfully', severity: 'success' });
+          dispatch(getAllSubjectives(adminID));
+          setSnack({ open: true, message: 'Subjective created successfully', severity: 'success' });
+          setIsPopupOpen(false);
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to add subjective', severity: 'error' });
+          setIsPopupOpen(false);
         });
     }
   };
 
   const resetForm = () => {
-    setSubjectName('');
-    setSubjectCode('');
-    setSubjectType('Theory');
+    setSubjectiveName('');
+    setSubjectiveCode('');
+    setSubjectiveType('Theory');
   };
 
-  const handleEdit = (subject) => {
-    setEditId(subject._id);
-    setSubjectName(subject.name);
-    setSubjectCode(subject.code);
-    setSubjectType(subject.type);
+  const handleEdit = (subjective) => {
+    setEditId(subjective._id);
+    setSubjectiveName(subjective.name);
+    setSubjectiveCode(subjective.code);
+    setSubjectiveType(subjective.type);
+    setIsPopupOpen(true);
   };
 
   const handleDelete = (id) => {
-    dispatch(deleteSubject(id))
-      .then(() => {
-        dispatch(getAllSubjects());
-        setSnack({ open: true, message: 'Subject deleted successfully', severity: 'info' });
-      });
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to delete subjectives', severity: 'error' });
+      return;
+    }
+    if (window.confirm('Are you sure you want to delete this subjective?')) {
+      dispatch(deleteSubjective(id, adminID))
+        .then(() => {
+          dispatch(getAllSubjectives(adminID));
+          setSnack({ open: true, message: 'Subjective deleted successfully', severity: 'info' });
+        })
+        .catch((err) => {
+          setSnack({ open: true, message: err.message || 'Failed to delete subjective', severity: 'error' });
+        });
+    }
   };
 
   const handleCloseSnack = () => {
     setSnack({ ...snack, open: false });
   };
 
-  const filteredSubjects = Array.isArray(subjectsList)
-    ? subjectsList.filter((subject) =>
-        subject?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        subject?.code?.toLowerCase().includes(searchQuery.toLowerCase())
+  const handleClosePopup = () => {
+    setIsPopupOpen(false);
+    setEditId(null);
+    resetForm();
+  };
+
+  const filteredSubjectives = Array.isArray(subjectivesList)
+    ? subjectivesList.filter((subjective) =>
+        subjective?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subjective?.code?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
@@ -132,29 +183,29 @@ const Subjects = () => {
         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
       }}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: '#333' }}>
-          {editId ? 'Edit Subject' : 'Add Subject'}
+          {editId ? 'Edit Subjective' : 'Add Subjective'}
         </Typography>
         <form onSubmit={handleSubmit}>
           <TextField
-            label="Subject Name"
-            value={subjectName}
-            onChange={(e) => setSubjectName(e.target.value)}
+            label="Subjective Name"
+            value={subjectiveName}
+            onChange={(e) => setSubjectiveName(e.target.value)}
             required
             fullWidth
             sx={{ mb: 2 }}
           />
           <TextField
-            label="Subject Code"
-            value={subjectCode}
-            onChange={(e) => setSubjectCode(e.target.value)}
+            label="Subjective Code"
+            value={subjectiveCode}
+            onChange={(e) => setSubjectiveCode(e.target.value)}
             required
             fullWidth
             sx={{ mb: 2 }}
           />
           <RadioGroup
             row
-            value={subjectType}
-            onChange={(e) => setSubjectType(e.target.value)}
+            value={subjectiveType}
+            onChange={(e) => setSubjectiveType(e.target.value)}
             sx={{ mb: 2 }}
           >
             <FormControlLabel value="Theory" control={<Radio />} label="Theory" />
@@ -163,7 +214,7 @@ const Subjects = () => {
           <Button
             type="submit"
             variant="contained"
-            disabled={loading}
+            disabled={loading || !adminID}
             sx={{
               backgroundColor: '#1a2526',
               '&:hover': { backgroundColor: '#2e3b3d' },
@@ -181,7 +232,7 @@ const Subjects = () => {
 
       {/* Table Section */}
       <Box sx={{ width: '70%' }}>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: '#333' }}>Subject List</Typography>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: '#333' }}>Subjective List</Typography>
         <TextField
           placeholder="Search..."
           value={searchQuery}
@@ -204,29 +255,29 @@ const Subjects = () => {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#1a2526' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Subject Name</TableCell>
+                    <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Subjective Name</TableCell>
                     <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Code</TableCell>
                     <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Type</TableCell>
                     <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredSubjects.map((subject, index) => (
+                  {filteredSubjectives.map((subjective, index) => (
                     <TableRow
-                      key={subject._id}
+                      key={subjective._id}
                       sx={{
                         bgcolor: index % 2 === 0 ? '#f5f5f5' : '#fff',
                         '&:hover': { backgroundColor: '#eef5f5' },
                       }}
                     >
-                      <TableCell sx={{ fontWeight: 500 }}>{subject.name}</TableCell>
-                      <TableCell>{subject.code}</TableCell>
-                      <TableCell>{subject.type}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{subjective.name}</TableCell>
+                      <TableCell>{subjective.code}</TableCell>
+                      <TableCell>{subjective.type}</TableCell>
                       <TableCell>
-                        <IconButton onClick={() => handleEdit(subject)} sx={{ color: '#1976d2' }}>
+                        <IconButton onClick={() => handleEdit(subjective)} sx={{ color: '#1976d2' }}>
                           <EditIcon />
                         </IconButton>
-                        <IconButton onClick={() => handleDelete(subject._id)} sx={{ color: '#d32f2f' }}>
+                        <IconButton onClick={() => handleDelete(subjective._id)} sx={{ color: '#d32f2f' }}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -236,11 +287,32 @@ const Subjects = () => {
               </Table>
             </TableContainer>
             <Typography sx={{ mt: 2, color: '#555' }}>
-              Records: {filteredSubjects.length} of {subjectsList?.length || 0}
+              Records: {filteredSubjectives.length} of {subjectivesList?.length || 0}
             </Typography>
           </>
         )}
       </Box>
+
+      {/* Dialog for Form Submission */}
+      <Dialog open={isPopupOpen} onClose={handleClosePopup} maxWidth="sm" fullWidth>
+        <DialogTitle>{editId ? 'Confirm Update Subjective' : 'Confirm Add Subjective'}</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {editId ? 'Are you sure you want to update this subjective?' : 'Are you sure you want to add this subjective?'}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            Name: {subjectiveName}<br />
+            Code: {subjectiveCode}<br />
+            Type: {subjectiveType}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePopup} color="error">Cancel</Button>
+          <Button onClick={handleConfirmSubmit} color="success">
+            {editId ? 'Update' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar Alert */}
       <Snackbar
@@ -257,4 +329,4 @@ const Subjects = () => {
   );
 };
 
-export default Subjects;
+export default SubjectiveList;

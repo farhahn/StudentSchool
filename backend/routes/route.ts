@@ -22,7 +22,7 @@ const {
     clearAllStudentsAttendance,
     removeStudentAttendanceBySubject,
     removeStudentAttendance } = require('../controllers/student_controller.ts');
-const { subjectCreate, classSubjects, deleteSubjectsByClass, getSubjectDetail, deleteSubject, freeSubjectList, allSubjects, deleteSubjects } = require('../controllers/subject-controller.ts');
+const { subjectCreate, classSubjects, deleteSubjectsByClass, getSubjectDetail, deleteSubject, freeSubjectList, allSubjects, deleteSubjects } = require('../controllers/subject-controller');
 // const { teacherRegister, teacherLogIn, getTeachers, getTeacherDetail,  deleteTeachersByClass,  updateTeacherSubject, teacherAttendance } = require('../controllers/teacher-controller.ts');
 const { 
     librarianRegister, 
@@ -604,41 +604,104 @@ router.put('/stock-item/:id', upload.single('document'), stockItemController.upd
 router.delete('/stock-item/:id', stockItemController.deleteStockItem);
 
 
+const examGroupController = require('../controllers/exam-group-controller');
+
+router.get('/exam-groups/:adminID', examGroupController.getExamGroups);
+router.post('/exam-group', examGroupController.addExamGroup);
+router.put('/exam-group/:id', examGroupController.updateExamGroup);
+router.delete('/exam-group/:id', examGroupController.deleteExamGroup);
+
+
+
+const examScheduleController = require('../controllers/exam-schedule-controller');
+
+router.get('/exam-schedules/:adminID', examScheduleController.getExamSchedules);
+router.post('/exam-schedule', examScheduleController.addExamSchedule);
+router.put('/exam-schedule/:id', examScheduleController.updateExamSchedule);
+router.delete('/exam-schedule/:id', examScheduleController.deleteExamSchedule);
+
+
+
+const examResultController = require('../controllers/exam-result-controller');
+
+router.get('/exam-results/:adminID', examResultController.getExamResults);
+router.post('/exam-result', examResultController.addExamResult);
+router.put('/exam-result/:id', examResultController.updateExamResult);
+router.delete('/exam-result/:id', examResultController.deleteExamResult);
+
+
+const admitCardController = require('../controllers/admit-card-controller');
+
+router.get('/admit-cards/:adminID', admitCardController.getAdmitCards);
+router.post('/admit-card', admitCardController.addAdmitCard);
+router.put('/admit-card/:id', admitCardController.updateAdmitCard);
+router.delete('/admit-card/:id', admitCardController.deleteAdmitCard);
 
 
 
 
+const marksheetController = require('../controllers/marksheet-controller');
+
+router.get('/marksheets/:adminID', marksheetController.getMarksheets);
+router.post('/marksheet', marksheetController.addMarksheet);
+router.put('/marksheet/:id', marksheetController.updateMarksheet);
+router.delete('/marksheet/:id', marksheetController.deleteMarksheet);
+
+
+const transportFeesController = require('../controllers/transport-fees-controller');
+
+router.get('/transport-fees/:adminID', transportFeesController.getTransportFees);
+router.post('/transport-fees', transportFeesController.addTransportFees);
+router.put('/transport-fees/:id', transportFeesController.updateTransportFees);
+router.delete('/transport-fees/:id', transportFeesController.deleteTransportFees);
+router.post('/transport-fees/copy', transportFeesController.copyTransportFees);
 
 
 
+const addTransportFeeController = require('../controllers/add-transport-fee-controller');
+
+router.get('/add-transport-fees/:adminID', addTransportFeeController.getAddTransportFees);
+router.post('/add-transport-fee', addTransportFeeController.addAddTransportFee);
+router.put('/add-transport-fee/:id', addTransportFeeController.updateAddTransportFee);
+router.delete('/add-transport-fee/:id', addTransportFeeController.deleteAddTransportFee);
 
 
+const promotionController = require('../controllers/promoteStudentController');
+
+router.get('/promotions', promotionController.getPromotions);
+router.put('/promotion/:id', promotionController.updatePromotion);
+router.post('/promote-promotions', promotionController.promotePromotions);
 
 
+const subjectGroupController = require('../controllers/subjectGroupController');
 
+router.get('/subject-groups', subjectGroupController.getSubjectGroups);
+router.post('/subject-group', subjectGroupController.addOrUpdateSubjectGroup);
+router.delete('/subject-group/class', subjectGroupController.deleteClassFromGroup);
 
+const subjectiveController = require('../controllers/subjectiveController');
 
+router.get('/subjectives/:adminID', subjectiveController.getSubjectives);
+router.post('/subjective', subjectiveController.addSubjective);
+router.put('/subjective/:id', subjectiveController.updateSubjective);
+router.delete('/subjective/:id', subjectiveController.deleteSubjective);
 
+const classTeacherAssignmentController = require('../controllers/class-teacher-assignment-controller');
 
+router.get('/class-teacher-assignments/:adminID', classTeacherAssignmentController.getClassTeacherAssignments);
+router.get('/teachers/:adminID', classTeacherAssignmentController.getTeachers);
+router.post('/class-teacher-assignment', classTeacherAssignmentController.addClassTeacherAssignment);
+router.put('/class-teacher-assignment/:id', classTeacherAssignmentController.updateClassTeacherAssignment);
+router.delete('/class-teacher-assignment/:id', classTeacherAssignmentController.deleteClassTeacherAssignment);
 
+const timetableController = require('../controllers/timetableController');
 
+// Debug: Log controller import
+console.log('timetableController imported:', timetableController);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+router.get('/:adminID/:teacherId', timetableController.getTeacherTimetable);
+router.post('/attendance/:adminID', timetableController.addAttendance);
+router.post('/:adminID', timetableController.addTimetable);
 
 
 
