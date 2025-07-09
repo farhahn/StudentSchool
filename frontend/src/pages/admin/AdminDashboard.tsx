@@ -271,7 +271,6 @@ const AdminDashboard = () => {
                          {/*Examination*/}
                          <Route path="/Admin/examination/groupexam" element={<GroupExam />} />
                          <Route path="/Admin/examination/examschedule" element={<ExamSchedule />} />
-                        
                          <Route path="/Admin/examination/examresult" element={<ExamResult />} />
                          <Route path="/Admin/examination/admitcardpage" element={<AdmitCardPage/>} />
                          <Route path="/Admin/examination/printadmitcard" element={<PrintAdmitCard/>} />

@@ -1,42 +1,264 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Box, Typography, TextField, FormControlLabel, Checkbox, Button,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, InputAdornment, Snackbar, Alert
+  Box, Typography, TextField, FormControlLabel, Checkbox, Button, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper, IconButton, InputAdornment, Snackbar, Alert, Grid, Card, CardContent, Dialog,
+  DialogTitle, DialogContent, DialogActions,MenuItem
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon
-} from '@mui/icons-material';
+import { Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Print as PrintIcon, Download as DownloadIcon, Settings as SettingsIcon } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
+import { CSVLink } from 'react-csv';
+import styled from 'styled-components';
+import ReactPaginate from 'react-paginate';
 import {
-  getAllFclasses,
-  createFclass,
-  updateFclass,
-  deleteFclass,
-  clearFclassError
-} from '../../../redux/fclass/fclassHandle.js';
-import {
-  getAllSections,
-  clearSectionError
-} from '../../../redux/sectionRelated/sectionHandle.js';
+  getAllFclasses, createFclass, updateFclass, deleteFclass, clearFclassError,
+} from '../../../redux/fclass/fclassHandle';
+import { getAllSections, clearSectionError } from '../../../redux/sectionRelated/sectionHandle';
+
+// Styled Components
+const Container = styled(Box)`
+  padding: 16px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e0eafc 100%);
+  min-height: 100vh;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  @media (min-width: 960px) {
+    padding: 32px;
+  }
+`;
+
+const Heading = styled(Typography)`
+  text-align: center;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 32px;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: fadeIn 1s ease-in;
+  @media (min-width: 960px) {
+    font-size: 2.5rem;
+  }
+`;
+
+const ClassCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  background: #ffffff;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const SubHeading = styled(Typography)`
+  font-weight: 700;
+  color: #34495e;
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+  animation: slideIn 0.8s ease-out;
+  @media (min-width: 960px) {
+    font-size: 1.5rem;
+  }
+`;
+
+const SearchContainer = styled(Box)`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  @media (max-width: 600px) {
+    flex-direction: column;
+  }
+`;
+
+const AddButton = styled(Button)`
+  border-radius: 25px;
+  text-transform: none;
+  background: linear-gradient(45deg, #2ecc71, #27ae60);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 25px;
+  box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+  &:hover {
+    background: linear-gradient(45deg, #27ae60, #219653);
+    box-shadow: 0 7px 20px rgba(46, 204, 113, 0.6);
+    transform: translateY(-3px);
+  }
+  transition: all 0.3s ease;
+`;
+
+const CancelButton = styled(Button)`
+  border-radius: 25px;
+  text-transform: none;
+  background-color: #e74c3c;
+  color: #fff;
+  font-weight: 600;
+  padding: 8px 20px;
+  &:hover {
+    background-color: #c0392b;
+  }
+  animation: pulse 1.5s infinite;
+`;
+
+const SaveButton = styled(Button)`
+  border-radius: 25px;
+  text-transform: none;
+  background: linear-gradient(45deg, #3498db, #2980b9);
+  color: #fff;
+  font-weight: 700;
+  padding: 8px 20px;
+  &:hover {
+    background: linear-gradient(45deg, #2980b9, #1abc9c);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.6);
+  }
+  animation: bounce 0.8s ease-out;
+`;
+
+const StyledTableContainer = styled(TableContainer)`
+  box-shadow: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  overflow-x: auto;
+`;
+
+const StyledTableRow = styled(TableRow)`
+  &:nth-of-type(even) {
+    background-color: #f9fbfd;
+  }
+  &:hover {
+    background-color: #e8f4f8;
+    transition: all 0.2s ease;
+  }
+`;
+
+const DialogContentStyled = styled(DialogContent)`
+  padding: 24px;
+  background: #f9fbfd;
+  max-height: 70vh;
+  overflow-y: auto;
+`;
+
+const PaginationContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  gap: 10px;
+`;
+
+// CSS Animations
+const styles = `
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes popIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  .pagination {
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .page {
+    margin: 0 3px;
+  }
+  .page-link {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    color: #1a2526;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 14px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .page-link:hover {
+    background-color: #e0e0e0;
+  }
+  .active .page-link {
+    background: #4caf50;
+    color: white;
+    border-color: #4caf50;
+    font-weight: bold;
+  }
+  @media (max-width: 600px) {
+    .pagination {
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .page-link {
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+  }
+  @media (max-width: 900px) {
+    .pagination {
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .page-link {
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+  }
+`;
+const styleSheet = document.createElement('style');
+styleSheet.textContent = styles;
+document.head.appendChild(styleSheet);
 
 const Classes = () => {
+  const dispatch = useDispatch();
+  const { fclassesList, loading, error: fclassError } = useSelector((state) => state.fclass || { fclassesList: [], loading: false, error: null });
+  const { sectionsList, error: sectionError } = useSelector((state) => state.sections || { sectionsList: [], error: null });
+  const { currentUser } = useSelector((state) => state.user || {});
+  const adminID = currentUser?._id;
+
+  // State for form, pagination, and dialog
   const [className, setClassName] = useState('');
   const [sections, setSections] = useState({});
   const [editId, setEditId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
-  const dispatch = useDispatch();
-  const fclassState = useSelector((state) => state.fclass || { fclassesList: [], loading: false, error: null });
-  const sectionState = useSelector((state) => state.sections || { sectionsList: [], error: null });
-  const userState = useSelector((state) => state.user || {});
-  const { fclassesList, loading, error: fclassError } = fclassState;
-  const { sectionsList, error: sectionError } = sectionState;
-  const adminID = userState.currentUser?._id;
+  // Refs for form field
+  const classNameRef = useRef(null);
+  const saveButtonRef = useRef(null);
 
+  // Fetch data
   useEffect(() => {
     if (adminID) {
       dispatch(getAllFclasses(adminID));
@@ -46,6 +268,7 @@ const Classes = () => {
     }
   }, [dispatch, adminID]);
 
+  // Initialize sections state
   useEffect(() => {
     if (sectionsList?.length) {
       const defaultState = {};
@@ -54,70 +277,30 @@ const Classes = () => {
     }
   }, [sectionsList]);
 
+  // Handle errors
   useEffect(() => {
     if (fclassError || sectionError) {
-      setSnack({ open: true, message: fclassError || sectionError, severity: 'error' });
+      const errorMessage = fclassError?.toLowerCase().includes('already exists') ? 'Class already exists' : (fclassError || sectionError);
+      setSnack({ open: true, message: errorMessage, severity: 'error' });
       if (fclassError) dispatch(clearFclassError());
       if (sectionError) dispatch(clearSectionError());
     }
   }, [fclassError, sectionError, dispatch]);
 
-  const handleSectionChange = (name) => {
-    setSections((prev) => ({ ...prev, [name]: !prev[name] }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!adminID) {
-      setSnack({ open: true, message: 'Please log in to submit classes', severity: 'error' });
-      return;
+  // Focus on class name field when dialog opens
+  useEffect(() => {
+    if (isPopupOpen) {
+      setTimeout(() => classNameRef.current?.focus(), 0);
     }
-    if (!className.trim()) {
-      setSnack({ open: true, message: 'Class name is required', severity: 'warning' });
-      return;
-    }
+  }, [isPopupOpen]);
 
-    const selectedSections = Object.keys(sections).filter((s) => sections[s]);
-    const payload = { name: className.trim(), sections: selectedSections, adminID };
-
-    const duplicate = fclassesList?.some(
-      (cls) =>
-        cls.name.toLowerCase() === className.trim().toLowerCase() &&
-        cls._id !== editId
-    );
-
-    if (duplicate) {
-      setSnack({ open: true, message: 'Class already exists!', severity: 'warning' });
-      return;
-    }
-
-    const action = editId ? updateFclass({ id: editId, fclass: payload, adminID }) : createFclass(payload, adminID);
-
-    dispatch(action)
-      .then(() => {
-        resetForm();
-        dispatch(getAllFclasses(adminID));
-        setSnack({
-          open: true,
-          message: editId ? 'Class updated successfully' : 'Class created successfully',
-          severity: 'success',
-        });
-        setEditId(null);
-      })
-      .catch((error) => {
-        setSnack({
-          open: true,
-          message: error.message || (editId ? 'Update failed' : 'Creation failed'),
-          severity: 'error',
-        });
-      });
-  };
-
-  const resetForm = () => {
+  const handleAdd = () => {
     setClassName('');
     const resetSections = {};
     sectionsList.forEach((s) => (resetSections[s.name] = false));
     setSections(resetSections);
+    setEditId(null);
+    setIsPopupOpen(true);
   };
 
   const handleEdit = (cls) => {
@@ -128,52 +311,381 @@ const Classes = () => {
       updatedSections[s.name] = cls.sections.includes(s.name);
     });
     setSections(updatedSections);
+    setIsPopupOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleClosePopup = () => {
+    setIsPopupOpen(false);
+    setEditId(null);
+    setClassName('');
+    const resetSections = {};
+    sectionsList.forEach((s) => (resetSections[s.name] = false));
+    setSections(resetSections);
+  };
+
+  const handleInputChange = (e) => {
+    setClassName(e.target.value);
+  };
+
+  const handleSectionChange = (name) => {
+    setSections((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  // Handle Enter key navigation
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
+  const handleSave = useCallback(() => {
+    if (!adminID) {
+      setSnack({ open: true, message: 'Please log in to submit classes', severity: 'error' });
+      return;
+    }
+    if (!className.trim()) {
+      setSnack({ open: true, message: 'Class name is required', severity: 'warning' });
+      return;
+    }
+    const selectedSections = Object.keys(sections).filter((s) => sections[s]);
+    if (selectedSections.length === 0) {
+      setSnack({ open: true, message: 'At least one section must be selected', severity: 'warning' });
+      return;
+    }
+    const duplicate = fclassesList.some(
+      (cls) => cls.name.toLowerCase() === className.trim().toLowerCase() && cls._id !== editId
+    );
+    if (duplicate) {
+      setSnack({ open: true, message: 'Class name already exists', severity: 'warning' });
+      return;
+    }
+
+    const payload = { name: className.trim(), sections: selectedSections };
+    const action = editId ? updateFclass({ id: editId, fclass: payload, adminID }) : createFclass(payload, adminID);
+
+    dispatch(action)
+      .then(() => {
+        setSnack({
+          open: true,
+          message: editId ? 'Class updated successfully' : 'Class created successfully',
+          severity: 'success',
+        });
+        handleClosePopup();
+        setCurrentPage(0); // Reset to first page
+        dispatch(getAllFclasses(adminID)); // Refresh class list
+      })
+      .catch((err) => {
+        const errorMessage = err.payload || (editId ? 'Update failed' : 'Creation failed');
+        setSnack({ open: true, message: errorMessage, severity: 'error' });
+      });
+  }, [adminID, className, sections, editId, fclassesList, dispatch]);
+
+  const handleDelete = useCallback((id) => {
     if (!adminID) {
       setSnack({ open: true, message: 'Please log in to delete classes', severity: 'error' });
       return;
     }
-    dispatch(deleteFclass(id, adminID))
-      .then(() => {
-        dispatch(getAllFclasses(adminID));
-        setSnack({ open: true, message: 'Class deleted', severity: 'info' });
-      })
-      .catch(() => {
-        setSnack({ open: true, message: 'Delete failed', severity: 'error' });
-      });
+    if (window.confirm('Are you sure you want to delete this class?')) {
+      dispatch(deleteFclass(id, adminID))
+        .then(() => {
+          setSnack({ open: true, message: 'Class deleted successfully', severity: 'info' });
+          setCurrentPage(0); // Reset to first page
+          dispatch(getAllFclasses(adminID)); // Refresh class list
+        })
+        .catch(() => {
+          setSnack({ open: true, message: 'Delete failed', severity: 'error' });
+        });
+    }
+  }, [adminID, dispatch]);
+
+  const handleExport = () => {
+    setSnack({ open: true, message: 'Exporting classes as CSV', severity: 'info' });
   };
 
-  const handleCloseSnack = () => setSnack({ ...snack, open: false });
+  const handlePrint = () => {
+    window.print();
+    setSnack({ open: true, message: 'Printing classes', severity: 'info' });
+  };
 
-  const filteredClasses = (fclassesList || []).filter((cls) =>
+  const handleSettings = () => {
+    setSnack({ open: true, message: 'Settings functionality not implemented', severity: 'warning' });
+  };
+
+  // Pagination logic
+  const filteredClasses = fclassesList.filter((cls) =>
     cls.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     cls.sections?.some((sec) => sec?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredClasses.slice(offset, offset + itemsPerPage);
+  const pageCount = Math.ceil(filteredClasses.length / itemsPerPage);
+
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
+
+  const csvData = filteredClasses.map((cls) => ({
+    'Class Name': cls.name,
+    Sections: cls.sections.join(', '),
+  }));
 
   return (
-    <Box sx={{ display: 'flex', gap: 3, p: 3, bgcolor: '#f9f9f9', minHeight: '100vh' }}>
-      {/* Form */}
-      <Box sx={{ width: '30%', p: 3, borderRadius: 2, bgcolor: '#fff', boxShadow: 1 }}>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-          {editId ? 'Edit Class' : 'Add Class'}
-        </Typography>
-        <form onSubmit={handleSubmit}>
+    <Container>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ '& .MuiSnackbarContent-root': { borderRadius: '12px' }, zIndex: 1500 }}
+      >
+        <Alert
+          onClose={() => setSnack({ ...snack, open: false })}
+          severity={snack.severity}
+          sx={{ width: '100%', fontWeight: 500 }}
+          variant="filled"
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
+      <Heading variant="h4">Class Management</Heading>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <ClassCard>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}>
+                <SubHeading variant="h5">Class List</SubHeading>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: { xs: 'center', sm: 'flex-end' } }}>
+                  <CSVLink data={csvData} filename="classes.csv" style={{ textDecoration: 'none' }} onClick={handleExport}>
+                    <IconButton
+                      sx={{
+                        color: '#7f8c8d',
+                        backgroundColor: '#ecf0f1',
+                        borderRadius: '50%',
+                        padding: '10px',
+                        '&:hover': { backgroundColor: '#bdc3c7', color: '#2c3e50', transform: 'scale(1.1)' },
+                        transition: 'all 0.3s ease',
+                      }}
+                      title="Export"
+                    >
+                      <DownloadIcon />
+                    </IconButton>
+                  </CSVLink>
+                  <IconButton
+                    sx={{
+                      color: '#7f8c8d',
+                      backgroundColor: '#ecf0f1',
+                      borderRadius: '50%',
+                      padding: '10px',
+                      '&:hover': { backgroundColor: '#bdc3c7', color: '#2c3e50', transform: 'scale(1.1)' },
+                      transition: 'all 0.3s ease',
+                    }}
+                    onClick={handlePrint}
+                    title="Print"
+                  >
+                    <PrintIcon />
+                  </IconButton>
+                  <IconButton
+                    sx={{
+                      color: '#7f8c8d',
+                      backgroundColor: '#ecf0f1',
+                      borderRadius: '50%',
+                      padding: '10px',
+                      '&:hover': { backgroundColor: '#bdc3c7', color: '#2c3e50', transform: 'scale(1.1)' },
+                      transition: 'all 0.3s ease',
+                    }}
+                    onClick={handleSettings}
+                    title="Settings"
+                  >
+                    <SettingsIcon />
+                  </IconButton>
+                  <AddButton variant="contained" onClick={handleAdd}>
+                    + Add New Class
+                  </AddButton>
+                </Box>
+              </Box>
+              <SearchContainer>
+                <TextField
+                  fullWidth
+                  label="Search classes or sections..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': { borderRadius: '12px', background: '#fff', '&:hover': { borderColor: '#3498db' } },
+                    '& .MuiInputLabel-root': { color: '#7f8c8d' },
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: '#7f8c8d' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => setCurrentPage(0)}
+                  sx={{
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                    backgroundColor: '#1976d2',
+                    color: '#fff',
+                    '&:hover': { backgroundColor: '#115293' },
+                  }}
+                >
+                  Search
+                </Button>
+              </SearchContainer>
+              <StyledTableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#34495e' }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.8rem', md: '0.9rem' }, p: { xs: 1, md: 2 } }}>
+                        Class Name
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.8rem', md: '0.9rem' }, p: { xs: 1, md: 2 } }}>
+                        Sections
+                      </TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, fontSize: { xs: '0.8rem', md: '0.9rem' }, p: { xs: 1, md: 2 } }}>
+                        Actions
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 2, color: '#7f8c8d' }}>
+                          Loading...
+                        </TableCell>
+                      </TableRow>
+                    ) : currentPageData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 4, color: '#7f8c8d' }}>
+                          No classes found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      currentPageData.map((cls) => (
+                        <StyledTableRow key={cls._id}>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                            {cls.name}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.8rem', md: '0.9rem' } }}>
+                            {cls.sections.length > 0 ? cls.sections.join(', ') : 'None'}
+                          </TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, display: 'flex', gap: 1 }}>
+                            <IconButton
+                              onClick={() => handleEdit(cls)}
+                              sx={{ color: '#3498db', '&:hover': { backgroundColor: '#bbdefb', transform: 'scale(1.1)' } }}
+                              title="Edit"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => handleDelete(cls._id)}
+                              sx={{ color: '#e74c3c', '&:hover': { backgroundColor: '#f5b7b1', transform: 'scale(1.1)' } }}
+                              title="Delete"
+                            />
+                              <DeleteIcon fontSize="small" />
+                            </TableCell>
+                         
+                        </StyledTableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </StyledTableContainer>
+              <PaginationContainer>
+                <Typography sx={{ color: '#1a2526', textAlign: 'center' }}>
+                  Showing {currentPageData.length} of {filteredClasses.length} classes
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: '#1a2526' }}>Items per page</Typography>
+                  <TextField
+                    select
+                    value={itemsPerPage}
+                    onChange={handleItemsPerPageChange}
+                    variant="outlined"
+                    size="small"
+                    sx={{ minWidth: 80 }}
+                  >
+                    {[5, 10, 20, 30].map((num) => (
+                      <MenuItem key={num} value={num}>{num}</MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+                <ReactPaginate
+                  previousLabel={'←'}
+                  nextLabel={'→'}
+                  pageCount={pageCount}
+                  onPageChange={({ selected }) => {
+                    setCurrentPage(selected);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  containerClassName={'pagination'}
+                  activeClassName={'active'}
+                  pageClassName={'page'}
+                  pageLinkClassName={'page-link'}
+                  previousClassName={'page'}
+                  nextClassName={'page'}
+                  breakLabel={'...'}
+                />
+              </PaginationContainer>
+            </CardContent>
+          </ClassCard>
+        </Grid>
+      </Grid>
+
+      <Dialog
+        open={isPopupOpen}
+        onClose={handleClosePopup}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            animation: 'popIn 0.5s ease-out',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            textAlign: 'center',
+            bgcolor: 'linear-gradient(90deg, #3498db, #2980b9)',
+            color: '#fff',
+            p: 2,
+            borderTopLeftRadius: '16px',
+            borderTopRightRadius: '16px',
+          }}
+        >
+          {editId ? 'Edit Class' : 'Add New Class'}
+        </DialogTitle>
+        <DialogContentStyled>
           <TextField
+            fullWidth
             label="Class Name"
             value={className}
-            onChange={(e) => setClassName(e.target.value)}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            variant="outlined"
+            size="small"
+            inputRef={classNameRef}
+            sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px', background: '#fff' } }}
             required
-            fullWidth
-            sx={{ mb: 2 }}
           />
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#34495e' }}>
             Assign Sections
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {sectionsList.length === 0 ? (
-              <Typography>No sections available</Typography>
+              <Typography sx={{ color: '#7f8c8d' }}>No sections available</Typography>
             ) : (
               sectionsList.map((s) => (
                 <FormControlLabel
@@ -185,82 +697,20 @@ const Classes = () => {
                     />
                   }
                   label={s.name}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 />
               ))
             )}
           </Box>
-          <Button type="submit" variant="contained" sx={{ mt: 2 }}>
+        </DialogContentStyled>
+        <DialogActions sx={{ p: 2, justifyContent: 'space-between', background: '#f9fbfd', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+          <CancelButton onClick={handleClosePopup}>Cancel</CancelButton>
+          <SaveButton onClick={handleSave} ref={saveButtonRef}>
             {editId ? 'Update' : 'Save'}
-          </Button>
-        </form>
-      </Box>
-
-      {/* Table */}
-      <Box sx={{ width: '70%' }}>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-          Class List
-        </Typography>
-        <TextField
-          placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ mb: 2, width: 240 }}
-        />
-        {loading ? (
-          <Typography>Loading...</Typography>
-        ) : (
-          <>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#1a2526' }}>
-                    <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Class Name</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Sections</TableCell>
-                    <TableCell sx={{ color: '#fff', fontWeight: 600 }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredClasses.map((cls, idx) => (
-                    <TableRow key={cls._id} sx={{ bgcolor: idx % 2 ? '#fff' : '#f5f5f5' }}>
-                      <TableCell>{cls.name}</TableCell>
-                      <TableCell>{cls.sections.join(', ')}</TableCell>
-                      <TableCell>
-                        <IconButton onClick={() => handleEdit(cls)} sx={{ color: '#1976d2' }}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handleDelete(cls._id)} sx={{ color: '#d32f2f' }}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <Typography sx={{ mt: 2 }}>Records: {filteredClasses.length}</Typography>
-          </>
-        )}
-      </Box>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={handleCloseSnack}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnack} severity={snack.severity} sx={{ width: '100%' }}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          </SaveButton>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

@@ -59,36 +59,61 @@ const StyledContainer = styled(Container)`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   background: linear-gradient(135deg, #2c3e50, #8e44ad, #3498db);
   background-size: 400% 400%;
   animation: ${gradientAnimation} 6s ease infinite;
   color: white;
-  overflow: hidden;
+  padding: 16px;
+  overflow: auto;
+
+  @media (max-width: 600px) {
+    padding: 8px;
+  }
 `;
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 const StyledPaper = styled.div`
-  padding: 40px;
+  padding: 2.5rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   backdrop-filter: blur(15px);
   text-align: center;
   box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3);
   animation: ${fadeIn} 1s ease-in-out;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 960px) {
+    padding: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    padding: 1rem;
+  }
 `;
 
 const StyledImage = styled.img`
   width: 100%;
+  max-width: 500px;
   border-radius: 20px;
   transition: transform 0.4s ease-in-out;
+  margin: 0 auto;
+  display: block;
 
   &:hover {
     transform: scale(1.05) rotate(3deg);
+  }
+
+  @media (max-width: 960px) {
+    max-width: 400px;
+  }
+  @media (max-width: 600px) {
+    max-width: 100%;
+    margin-bottom: 1rem;
   }
 `;
 
@@ -98,7 +123,7 @@ const neonGlow = keyframes`
 `;
 
 const StyledTitle = styled.h1`
-  font-size: 3rem;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
   font-weight: bold;
   background: linear-gradient(90deg, #ff00ff, #ffcc00);
   -webkit-background-clip: text;
@@ -106,14 +131,21 @@ const StyledTitle = styled.h1`
   letter-spacing: 1px;
   line-height: 1.2;
   animation: ${neonGlow} 1.5s ease-in-out infinite alternate;
+
+  @media (max-width: 600px) {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+  }
 `;
 
 const StyledText = styled.p`
-  font-size: 1.2rem;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  margin: 1rem 0;
   color: rgb(120, 192, 5);
   opacity: 0.9;
+
+  @media (max-width: 600px) {
+    font-size: clamp(0.8rem, 2vw, 1rem);
+  }
 `;
 
 const StyledBox = styled(Box)`
@@ -121,14 +153,22 @@ const StyledBox = styled(Box)`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 20px;
+  gap: 12px;
+  padding: 1rem;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+
+  @media (max-width: 600px) {
+    gap: 8px;
+    padding: 0.5rem;
+  }
 `;
 
 const NeonButton = styled(Button)`
   background: linear-gradient(90deg, #ff0080, #ffcc00);
   color: white;
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 2.5vw, 1rem);
   font-weight: bold;
   padding: 10px 20px;
   border-radius: 8px;
@@ -140,6 +180,10 @@ const NeonButton = styled(Button)`
     transform: scale(1.05);
     box-shadow: 0px 0px 25px rgba(255, 0, 128, 1);
   }
+
+  @media (max-width: 600px) {
+    padding: 8px 16px;
+  }
 `;
 
 const glowingEffect = keyframes`
@@ -150,7 +194,7 @@ const glowingEffect = keyframes`
 
 const GlowingButton = styled(Button)`
   color: #fff;
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 2.5vw, 1rem);
   font-weight: bold;
   padding: 10px 20px;
   border: 2px solid #00ff80;
@@ -163,8 +207,13 @@ const GlowingButton = styled(Button)`
     background: rgba(0, 255, 128, 0.2);
     transform: scale(1.05);
   }
+
+  @media (max-width: 600px) {
+    padding: 8px 16px;
+  }
 `;
 
 const StyledLink = styled(Link)`
   text-decoration: none;
+  width: 100%;
 `;

@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ReactPaginate from "react-paginate";
 import {
   fetchCallLogs,
   addCallLog,
@@ -42,12 +44,13 @@ const PhoneCallLogPage: React.FC = () => {
     note: "",
     callType: "Incoming" as "Incoming" | "Outgoing",
   });
-
   const [filters, setFilters] = useState({
     name: "",
     phone: "",
     date: "",
   });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Refs for form inputs
   const inputRefs = {
@@ -64,15 +67,16 @@ const PhoneCallLogPage: React.FC = () => {
 
   useEffect(() => {
     if (adminID) {
-      console.log("Fetching call logs for admin:", adminID);
       dispatch(fetchCallLogs(adminID));
     } else {
       setError("Please log in to view call logs");
-      toast.error("Please log in to view call logs", { position: "top-right", autoClose: 3000 });
+      toast.error("Please log in to view call logs", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   }, [dispatch, adminID]);
 
-  // Focus the first field when the form opens
   useEffect(() => {
     if (showForm && inputRefs.name.current) {
       inputRefs.name.current.focus();
@@ -90,6 +94,12 @@ const PhoneCallLogPage: React.FC = () => {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+    setCurrentPage(0); // Reset to first page on filter change
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
   };
 
   const handleKeyDown = (
@@ -110,74 +120,110 @@ const PhoneCallLogPage: React.FC = () => {
     e.preventDefault();
     if (!adminID) {
       setError("Please log in to submit call logs");
-      toast.error("Please log in to submit call logs", { position: "top-right", autoClose: 3000 });
+      toast.error("Please log in to submit call logs", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     // Validation
     if (!formData.name.trim()) {
       setError("Name is required");
-      toast.error("Name is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Name is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     const cleanedPhone = formData.phone.replace(/\D/g, "");
     if (!cleanedPhone) {
       setError("Phone number is required");
-      toast.error("Phone number is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Phone number is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     const phoneRegex = /^[0-9]{10}$/;
     if (!phoneRegex.test(cleanedPhone)) {
       setError("Please enter a valid 10-digit phone number");
-      toast.error("Please enter a valid 10-digit phone number", { position: "top-right", autoClose: 3000 });
+      toast.error("Please enter a valid 10-digit phone number", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     if (!formData.date) {
       setError("Date is required");
-      toast.error("Date is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Date is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     const isValidDate = (dateStr: string) => !isNaN(new Date(dateStr).getTime());
     if (!isValidDate(formData.date)) {
       setError("Invalid date format");
-      toast.error("Invalid date format", { position: "top-right", autoClose: 3000 });
+      toast.error("Invalid date format", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     if (!formData.followUpDate) {
       setError("Follow-up date is required");
-      toast.error("Follow-up date is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Follow-up date is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     if (!isValidDate(formData.followUpDate)) {
       setError("Invalid follow-up date format");
-      toast.error("Invalid follow-up date format", { position: "top-right", autoClose: 3000 });
+      toast.error("Invalid follow-up date format", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     if (!formData.description.trim()) {
       setError("Description is required");
-      toast.error("Description is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Description is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     if (!formData.duration.trim()) {
       setError("Duration is required");
-      toast.error("Duration is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Duration is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
     const durationRegex = /^\d+\s*(min|sec)$/i;
     if (!durationRegex.test(formData.duration.trim())) {
       setError("Duration must be a number followed by 'min' or 'sec' (e.g., '5 min')");
-      toast.error("Duration must be a number followed by 'min' or 'sec' (e.g., '5 min')", { position: "top-right", autoClose: 3000 });
+      toast.error("Duration must be a number followed by 'min' or 'sec' (e.g., '5 min')", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
     if (!formData.note.trim()) {
       setError("Note is required");
-      toast.error("Note is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Note is required", {
+        position: "top-right",
+        autoClose: 3000,
+      });
       return;
     }
 
@@ -196,11 +242,17 @@ const PhoneCallLogPage: React.FC = () => {
     try {
       if (editingId) {
         await dispatch(updateCallLog({ id: editingId, log: payload, adminID }));
-        toast.success("Call log updated successfully!", { position: "top-right", autoClose: 3000 });
+        toast.success("Call log updated successfully!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
         setEditingId(null);
       } else {
-        await dispatch(addCallLog(payload));
-        toast.success("Call log added successfully!", { position: "top-right", autoClose: 3000 });
+        await dispatch(addCallLog(payload, adminID));
+        toast.success("Call log added successfully!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
       }
 
       setFormData({
@@ -216,7 +268,10 @@ const PhoneCallLogPage: React.FC = () => {
       setShowForm(false);
       setError(null);
     } catch (err) {
-      toast.error("Failed to save call log.", { position: "top-right", autoClose: 3000 });
+      toast.error("Failed to save call log.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   };
 
@@ -240,7 +295,10 @@ const PhoneCallLogPage: React.FC = () => {
 
   const handleDelete = (id: string) => {
     dispatch(deleteCallLog(id, adminID));
-    toast.success("Call log deleted successfully!", { position: "top-right", autoClose: 3000 });
+    toast.success("Call log deleted successfully!", {
+      position: "top-right",
+      autoClose: 3000,
+    });
   };
 
   const filteredCallLogs = callLogs.filter((log: CallLog) => {
@@ -250,494 +308,149 @@ const PhoneCallLogPage: React.FC = () => {
     return matchesName && matchesPhone && matchesDate;
   });
 
+  const pageCount = Math.ceil(filteredCallLogs.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredCallLogs.slice(offset, offset + itemsPerPage);
+
   return (
-    <div
-      style={{
-        padding: "20px",
-        fontFamily: "'Roboto', Arial, sans-serif",
-        backgroundColor: "#e8f0f2",
-        minHeight: "100vh",
-        transition: "all 0.3s ease",
-      }}
-    >
-      <style jsx>{`
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-        .card {
-          background: #fff;
-          border-radius: 12px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          padding: 20px;
-          margin-bottom: 20px;
-          transition: transform 0.2s ease;
-        }
-        .card:hover {
-          transform: translateY(-2px);
-        }
-        .form-container {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-        .form-container label {
-          font-size: 0.9rem;
-          font-weight: 500;
-          color: #455a64;
-          margin-bottom: 4px;
-        }
-        .form-container input,
-        .form-container textarea {
-          padding: 10px;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          background: #f5f5f5;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .form-container input:focus,
-        .form-container textarea:focus {
-          outline: none;
-          border-color: #00796b;
-          box-shadow: 0 0 5px rgba(0, 121, 107, 0.3);
-        }
-        .form-container textarea {
-          resize: vertical;
-          min-height: 80px;
-        }
-        .form-container .radio-group {
-          display: flex;
-          gap: 20px;
-          align-items: center;
-        }
-        .form-container .radio-group label {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 0.9rem;
-        }
-        .filter-container {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-          justify-content: center;
-          margin-bottom: 20px;
-        }
-        .filter-container input {
-          padding: 10px;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          background: #f5f5f5;
-          width: 160px;
-          transition: border-color 0.2s ease;
-        }
-        .filter-container input:focus {
-          outline: none;
-          border-color: #00796b;
-        }
-        .error {
-          color: #d32f2f;
-          text-align: center;
-          font-size: 0.9rem;
-          margin-bottom: 16px;
-          font-weight: 500;
-        }
-        .table-container {
-          overflow-x: auto;
-        }
-        .table {
-          width: 100%;
-          border-collapse: collapse;
-          background: #fff;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        .table th,
-        .table td {
-          padding: 12px;
-          text-align: left;
-          font-size: 0.9rem;
-          border-bottom: 1px solid #e0e0e0;
-        }
-        .table th {
-          background: #004d40;
-          color: #fff;
-          font-weight: 600;
-          text-transform: uppercase;
-        }
-        .table tr {
-          transition: background 0.2s ease, transform 0.2s ease;
-        }
-        .table tr:hover {
-          background: #e0f2f1;
-          transform: translateY(-1px);
-        }
-        .table-mobile {
-          display: none;
-        }
-        .table-mobile .row {
-          background: #fff;
-          border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-          padding: 12px;
-          margin-bottom: 12px;
-        }
-        .table-mobile .row div {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid #e0e0e0;
-          font-size: 0.85rem;
-        }
-        .table-mobile .row div:last-child {
-          border-bottom: none;
-        }
-        .table-mobile .row div span:first-child {
-          font-weight: 600;
-          color: #455a64;
-        }
-        .button {
-          padding: 8px 16px;
-          border: none;
-          border-radius: 20px;
-          font-size: 0.9rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-transform: none;
-        }
-        .button:hover {
-          transform: scale(1.05);
-        }
-        .button-primary {
-          background: #00796b;
-          color: #fff;
-        }
-        .button-primary:hover {
-          background: #004d40;
-        }
-        .button-danger {
-          background: #d32f2f;
-          color: #fff;
-        }
-        .button-danger:hover {
-          background: #b71c1c;
-        }
-        .action-button {
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 1.2rem;
-          padding: 5px;
-          transition: transform 0.2s ease;
-        }
-        .action-button:hover {
-          transform: scale(1.2);
-        }
-        .modal {
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: #fff;
-          padding: 24px;
-          width: 90%;
-          max-width: 450px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-          border-radius: 16px;
-          z-index: 1000;
-          animation: fadeIn 0.3s ease;
-          overflow-y: auto;
-          max-height: 90vh;
-          border: 2px solid #00796b;
-        }
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-          z-index: 999;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translate(-50%, -60%); }
-          to { opacity: 1; transform: translate(-50%, -50%); }
-        }
-        .Toastify__toast--success {
-          background: linear-gradient(135deg, #00796b, #004d40);
-          color: #fff;
-          font-family: 'Roboto', Arial, sans-serif;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          font-size: 0.9rem;
-        }
-        .Toastify__toast--error {
-          background: linear-gradient(135deg, #d32f2f, #b71c1c);
-          color: #fff;
-          font-family: 'Roboto', Arial, sans-serif;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          font-size: 0.9rem;
-        }
-        .Toastify__toast-body {
-          padding: 10px;
-        }
-        .Toastify__close-button {
-          color: #fff;
-          opacity: 0.8;
-        }
-        .Toastify__close-button:hover {
-          opacity: 1;
-        }
-        .Toastify__progress-bar {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        @media (max-width: 600px) {
-          .table {
-            display: none;
-          }
-          .table-mobile {
-            display: block;
-          }
-          .filter-container input {
-            width: 100%;
-            max-width: 100%;
-          }
-          .modal {
-            width: 95%;
-            padding: 16px;
-            max-height: 85vh;
-            border: 1px solid #00796b;
-          }
-          .form-container label,
-          .form-container input,
-          .form-container textarea {
-            font-size: 0.85rem;
-          }
-          .button {
-            font-size: 0.85rem;
-            padding: 8px 12px;
-          }
-          .modal h3 {
-            font-size: 1.2rem;
-          }
-        }
-      `}</style>
+    <div style={styles.container}>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+      <h2 style={styles.heading}>Phone Call Log Management</h2>
 
-      <div className="container">
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
+      {(error || reduxError) && <div style={styles.error}>{error || reduxError}</div>}
+
+      <div style={styles.filterContainer}>
+        <input
+          type="text"
+          name="name"
+          placeholder="Filter by Name"
+          value={filters.name}
+          onChange={handleFilterChange}
+          style={styles.input}
         />
-
-        <h2
-          style={{
-            textAlign: "center",
-            color: "#004d40",
-            fontSize: "2rem",
-            fontWeight: 700,
-            marginBottom: "24px",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
+        <input
+          type="text"
+          name="phone"
+          placeholder="Filter by Phone"
+          value={filters.phone}
+          onChange={handleFilterChange}
+          style={styles.input}
+        />
+        <label style={styles.label}>
+          Date:
+          <input
+            type="date"
+            name="date"
+            value={filters.date}
+            onChange={handleFilterChange}
+            style={styles.input}
+          />
+        </label>
+        <select
+          value={itemsPerPage}
+          onChange={handleItemsPerPageChange}
+          style={styles.select}
         >
-          Phone Call Log Management
-        </h2>
+          {[5, 10, 20, 30].map((n) => (
+            <option key={n} value={n}>{n} / page</option>
+          ))}
+        </select>
+      </div>
 
-        {(error || reduxError) && (
-          <div className="error">{error || reduxError}</div>
-        )}
+      <div style={styles.headerContainer}>
+        <h3 style={styles.subHeading}>Phone Call Log Details</h3>
+        <button onClick={() => {
+          setShowForm(true);
+          setEditingId(null);
+          setFormData({
+            name: "",
+            phone: "",
+            date: new Date().toISOString().split("T")[0],
+            description: "",
+            followUpDate: "",
+            duration: "",
+            note: "",
+            callType: "Incoming",
+          });
+        }} style={styles.addButton}>
+          + Add
+        </button>
+      </div>
 
-        {/* Filter Section */}
-        <div className="card">
-          <div className="filter-container">
-            <input
-              type="text"
-              name="phone"
-              placeholder="Filter by Phone"
-              value={filters.phone}
-              onChange={handleFilterChange}
-            />
-            <input
-              type="date"
-              name="date"
-              value={filters.date}
-              onChange={handleFilterChange}
-            />
-          </div>
-        </div>
-
-        {/* Table Section */}
-        <div className="card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px",
-            }}
-          >
-            <h3
-              style={{
-                color: "#004d40",
-                fontSize: "1.4rem",
-                fontWeight: 600,
-                margin: 0,
-              }}
-            >
-              Call Log Details
-            </h3>
-            <button
-              onClick={() => {
-                setShowForm(true);
-                setEditingId(null);
-                setFormData({
-                  name: "",
-                  phone: "",
-                  date: new Date().toISOString().split("T")[0],
-                  description: "",
-                  followUpDate: "",
-                  duration: "",
-                  note: "",
-                  callType: "Incoming",
-                });
-              }}
-              className="button button-primary"
-            >
-              + Add Call Log
-            </button>
-          </div>
-
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "20px", fontSize: "1rem" }}>
-              Loading...
-            </div>
-          ) : filteredCallLogs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "#d32f2f", fontSize: "1rem" }}>
-              No call logs available
-            </div>
-          ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Phone</th>
-                      <th>Date</th>
-                      <th>Follow Up</th>
-                      <th>Type</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCallLogs.map((log: CallLog) => (
-                      <tr key={log._id}>
-                        <td>{log.name}</td>
-                        <td>{log.phone}</td>
-                        <td>{new Date(log.date).toLocaleDateString()}</td>
-                        <td>{log.followUpDate ? new Date(log.followUpDate).toLocaleDateString() : "N/A"}</td>
-                        <td>{log.callType}</td>
-                        <td>
-                          <button
-                            onClick={() => handleEdit(log._id)}
-                            className="action-button"
-                            style={{ color: "#0288d1" }}
-                            title="Edit"
-                          >
-                            📝
-                          </button>
-                          <button
-                            onClick={() => handleDelete(log._id)}
-                            className="action-button"
-                            style={{ color: "#d32f2f" }}
-                            title="Delete"
-                          >
-                            ❌
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Table */}
-              <div className="table-mobile">
-                {filteredCallLogs.map((log: CallLog) => (
-                  <div className="row" key={log._id}>
-                    <div>
-                      <span>Name:</span> <span>{log.name}</span>
-                    </div>
-                    <div>
-                      <span>Phone:</span> <span>{log.phone}</span>
-                    </div>
-                    <div>
-                      <span>Date:</span> <span>{new Date(log.date).toLocaleDateString()}</span>
-                    </div>
-                    <div>
-                      <span>Follow Up:</span> <span>{log.followUpDate ? new Date(log.followUpDate).toLocaleDateString() : "N/A"}</span>
-                    </div>
-                    <div>
-                      <span>Type:</span> <span>{log.callType}</span>
-                    </div>
-                    <div>
-                      <span>Actions:</span>
-                      <span>
-                        <button
-                          onClick={() => handleEdit(log._id)}
-                          className="action-button"
-                          style={{ color: "#0288d1" }}
-                        >
-                          📝
-                        </button>
-                        <button
-                          onClick={() => handleDelete(log._id)}
-                          className="action-button"
-                          style={{ color: "#d32f2f" }}
-                        >
-                          ❌
-                        </button>
-                      </span>
-                    </div>
-                  </div>
+      {loading ? (
+        <div style={styles.loading}>Loading...</div>
+      ) : currentPageData.length === 0 ? (
+        <div style={styles.noData}>No call logs available</div>
+      ) : (
+        <div style={styles.tableContainer}>
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Name</th>
+                  <th style={styles.th}>Phone</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Follow Up</th>
+                  <th style={styles.th}>Type</th>
+                  <th style={styles.th}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentPageData.map((log: CallLog) => (
+                  <tr key={log._id} style={styles.tr}>
+                    <td style={styles.td}>{log.name}</td>
+                    <td style={styles.td}>{log.phone}</td>
+                    <td style={styles.td}>{new Date(log.date).toLocaleDateString()}</td>
+                    <td style={styles.td}>{log.followUpDate ? new Date(log.followUpDate).toLocaleDateString() : "N/A"}</td>
+                    <td style={styles.td}>{log.callType}</td>
+                    <td style={styles.td}>
+                      <button onClick={() => handleEdit(log._id)} style={styles.editButton}>📝</button>
+                      <button onClick={() => handleDelete(log._id)} style={styles.deleteButton}>❌</button>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </>
-          )}
+              </tbody>
+            </table>
+          </div>
+          <div style={styles.paginationContainer}>
+            <p style={styles.recordCount}>Records: {currentPageData.length} of {filteredCallLogs.length}</p>
+            <ReactPaginate
+              previousLabel={'←'}
+              nextLabel={'→'}
+              pageCount={pageCount}
+              onPageChange={({ selected }) => {
+                setCurrentPage(selected);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              containerClassName={'pagination'}
+              activeClassName={'active'}
+              pageClassName={'page'}
+              pageLinkClassName={'page-link'}
+              previousClassName={'page'}
+              nextClassName={'page'}
+              breakLabel={'...'}
+            />
+          </div>
         </div>
+      )}
 
-        {/* Form Modal */}
-        {showForm && (
-          <>
-            <div className="modal-overlay" onClick={() => setShowForm(false)} />
-            <div className="modal">
-              <h3
-                style={{
-                  color: "#004d40",
-                  fontSize: "1.4rem",
-                  fontWeight: 600,
-                  textAlign: "center",
-                  marginBottom: "20px",
-                }}
-              >
-                {editingId !== null ? "Edit Call Log" : "Add Call Log"}
-              </h3>
-              {error && <div className="error">{error}</div>}
-              <form onSubmit={handleSubmit} className="form-container">
-                <label>Name</label>
+      {showForm && (
+        <div style={styles.modal}>
+          <div style={styles.modalContent}>
+            <h3 style={styles.subHeading}>{editingId !== null ? "Edit Call Log" : "Add Call Log"}</h3>
+            <form onSubmit={handleSubmit} style={styles.formContainer}>
+              <div style={styles.formField}>
+                <label style={styles.label}>Name</label>
                 <input
                   type="text"
                   name="name"
@@ -745,9 +458,12 @@ const PhoneCallLogPage: React.FC = () => {
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "phone")}
                   ref={inputRefs.name}
+                  style={styles.input}
                   required
                 />
-                <label>Phone</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Phone</label>
                 <input
                   type="tel"
                   name="phone"
@@ -755,9 +471,12 @@ const PhoneCallLogPage: React.FC = () => {
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "date")}
                   ref={inputRefs.phone}
+                  style={styles.input}
                   required
                 />
-                <label>Date</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Date</label>
                 <input
                   type="date"
                   name="date"
@@ -765,18 +484,24 @@ const PhoneCallLogPage: React.FC = () => {
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "description")}
                   ref={inputRefs.date}
+                  style={styles.input}
                   required
                 />
-                <label>Description</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Description</label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "followUpDate")}
                   ref={inputRefs.description}
+                  style={styles.textarea}
                   required
                 />
-                <label>Follow Up Date</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Follow Up Date</label>
                 <input
                   type="date"
                   name="followUpDate"
@@ -784,9 +509,12 @@ const PhoneCallLogPage: React.FC = () => {
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "duration")}
                   ref={inputRefs.followUpDate}
+                  style={styles.input}
                   required
                 />
-                <label>Duration</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Duration</label>
                 <input
                   type="text"
                   name="duration"
@@ -795,20 +523,26 @@ const PhoneCallLogPage: React.FC = () => {
                   onKeyDown={(e) => handleKeyDown(e, "note")}
                   ref={inputRefs.duration}
                   placeholder="e.g., 5 min"
+                  style={styles.input}
                   required
                 />
-                <label>Note</label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Note</label>
                 <textarea
                   name="note"
                   value={formData.note}
                   onChange={handleChange}
                   onKeyDown={(e) => handleKeyDown(e, "callTypeIncoming")}
                   ref={inputRefs.note}
+                  style={styles.textarea}
                   required
                 />
-                <label>Call Type</label>
-                <div className="radio-group">
-                  <label>
+              </div>
+              <div style={styles.formField}>
+                <label style={styles.label}>Call Type</label>
+                <div style={styles.radioGroup}>
+                  <label style={styles.radioLabel}>
                     <input
                       type="radio"
                       name="callType"
@@ -820,7 +554,7 @@ const PhoneCallLogPage: React.FC = () => {
                     />
                     Incoming
                   </label>
-                  <label>
+                  <label style={styles.radioLabel}>
                     <input
                       type="radio"
                       name="callType"
@@ -833,25 +567,349 @@ const PhoneCallLogPage: React.FC = () => {
                     Outgoing
                   </label>
                 </div>
-                <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px" }}>
-                  <button type="submit" className="button button-primary">
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="button button-danger"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </>
-        )}
-      </div>
+              </div>
+              <div style={styles.buttonGroup}>
+                <button type="submit" style={styles.saveButton}>Save</button>
+                <button type="button" onClick={() => setShowForm(false)} style={styles.cancelButton}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: 1rem 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #333;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background-color: #27ae60;
+          color: white;
+          border-color: #27ae60;
+          font-weight: bold;
+        }
+        .Toastify__toast--success {
+          background: linear-gradient(135deg, #28a745, #218838);
+          color: #fff;
+          font-family: Arial, sans-serif;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          font-size: clamp(0.8rem, 3vw, 0.9rem);
+        }
+        .Toastify__toast--error {
+          background: linear-gradient(135deg, #dc3545, #c82333);
+          color: #fff;
+          font-family: Arial, sans-serif;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          font-size: clamp(0.8rem, 3vw, 0.9rem);
+        }
+        .Toastify__toast-body {
+          padding: 8px;
+        }
+        .Toastify__close-button {
+          color: #fff;
+          opacity: 0.8;
+          transition: opacity 0.2s ease;
+        }
+        .Toastify__close-button:hover {
+          opacity: 1;
+        }
+        .Toastify__progress-bar {
+          background: rgba(255, 255, 255, 0.3);
+        }
+        tr:hover {
+          background-color: #f1f1f1;
+        }
+        @media (max-width: 600px) {
+          .Toastify__toast {
+            font-size: 0.8rem;
+            margin: 5px;
+            width: calc(100% - 10px);
+          }
+          .Toastify__toast-body {
+            padding: 6px;
+          }
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+      `}</style>
     </div>
   );
+};
+
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    maxWidth: '90vw',
+    margin: '20px auto',
+    backgroundColor: '#e8c897',
+    padding: 'clamp(15px, 2vw, 20px)',
+    borderRadius: '10px',
+    boxShadow: '0 0 10px rgb(239, 176, 17)',
+    fontFamily: 'Arial, sans-serif',
+    minHeight: '100vh',
+  },
+  heading: {
+    textAlign: 'center',
+    color: '#333',
+    fontSize: 'clamp(1.5rem, 5vw, 1.8rem)',
+    marginBottom: '20px',
+  },
+  subHeading: {
+    fontSize: 'clamp(1rem, 4vw, 1.2rem)',
+    color: '#333',
+    marginBottom: '15px',
+  },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: '20px',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+  },
+  input: {
+    width: '100%',
+    padding: '8px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+  },
+  textarea: {
+    width: '100%',
+    padding: '8px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    resize: 'vertical',
+    minHeight: '80px',
+  },
+  select: {
+    padding: '8px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    minWidth: '80px',
+  },
+  filterContainer: {
+    display: 'flex',
+    gap: '10px',
+    marginBottom: '20px',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  headerContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '10px',
+    flexWrap: 'wrap',
+    gap: '10px',
+  },
+  addButton: {
+    padding: '8px 12px',
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    minWidth: '44px',
+    minHeight: '44px',
+  },
+  tableContainer: {
+    background: 'white',
+    borderRadius: '5px',
+    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
+    padding: '10px',
+  },
+  tableWrapper: {
+    overflowX: 'auto',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    minWidth: '600px',
+  },
+  th: {
+    backgroundColor: '#007BFF',
+    color: 'white',
+    padding: 'clamp(8px, 2vw, 10px)',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    borderBottom: '1px solid #ddd',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+  },
+  td: {
+    padding: 'clamp(8px, 2vw, 10px)',
+    borderBottom: '1px solid #ddd',
+    textAlign: 'center',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+  },
+  tr: {
+    transition: 'background-color 0.2s',
+  },
+  editButton: {
+    margin: '0 3px',
+    padding: '6px 10px',
+    backgroundColor: '#ffc107',
+    color: '#212529',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: 'clamp(0.7rem, 2.5vw, 0.8rem)',
+    minWidth: '44px',
+    minHeight: '44px',
+  },
+  deleteButton: {
+    margin: '0 3px',
+    padding: '6px 10px',
+    backgroundColor: '#dc3545',
+    color: 'white',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: 'clamp(0.7rem, 2.5vw, 0.8rem)',
+    minWidth: '44px',
+    minHeight: '44px',
+  },
+  loading: {
+    textAlign: 'center',
+    color: '#333',
+    fontSize: 'clamp(0.9rem, 3vw, 1rem)',
+    margin: '20px 0',
+  },
+  noData: {
+    textAlign: 'center',
+    color: 'red',
+    fontSize: 'clamp(0.9rem, 3vw, 1rem)',
+    margin: '20px 0',
+  },
+  recordCount: {
+    color: '#333',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    marginBottom: '10px',
+  },
+  paginationContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: '10px',
+    gap: '10px',
+  },
+  modal: {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1300,
+    overflowY: 'auto',
+  },
+  modalContent: {
+    background: 'white',
+    padding: 'clamp(15px, 4vw, 20px)',
+    borderRadius: '8px',
+    width: 'min(90vw, 500px)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+  },
+  formContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  formField: {
+    marginBottom: '15px',
+  },
+  label: {
+    display: 'block',
+    marginBottom: '5px',
+    fontWeight: 'bold',
+    color: '#333',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+  },
+  radioGroup: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+  },
+  radioLabel: {
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    marginLeft: '5px',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: '15px',
+  },
+  saveButton: {
+    padding: '8px 12px',
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    minWidth: '44px',
+    minHeight: '44px',
+  },
+  cancelButton: {
+    padding: '8px 12px',
+    backgroundColor: '#dc3545',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    minWidth: '44px',
+    minHeight: '44px',
+  },
 };
 
 export default PhoneCallLogPage;

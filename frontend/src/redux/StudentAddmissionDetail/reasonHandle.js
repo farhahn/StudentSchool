@@ -1,15 +1,12 @@
+import { createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import {
-  fetchReasonsRequest,
   fetchReasonsSuccess,
   fetchReasonsError,
-  createReasonRequest,
   createReasonSuccess,
   createReasonError,
-  updateReasonRequest,
   updateReasonSuccess,
   updateReasonError,
-  deleteReasonRequest,
   deleteReasonSuccess,
   deleteReasonError,
 } from './reasonSlice';
@@ -29,58 +26,66 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const fetchAllReasons = (adminID) => async (dispatch) => {
-  dispatch(fetchReasonsRequest());
-  try {
-    console.log(`Request URL: /reasons/${adminID}`);
-    const response = await api.get(`/reasons/${adminID}`);
-    console.log('Fetch reasons response:', response.data);
-    dispatch(fetchReasonsSuccess(response.data.data || []));
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message;
-    console.error('Error fetching reasons:', errorMessage, error);
-    dispatch(fetchReasonsError(errorMessage));
+export const fetchAllReasons = createAsyncThunk(
+  'reason/fetchAllReasons',
+  async (adminID, { rejectWithValue }) => {
+    try {
+      console.log(`Request URL: /reasons/${adminID}`);
+      const response = await api.get(`/reasons/${adminID}`);
+      console.log('Fetch reasons response:', response.data);
+      return response.data.data || [];
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      console.error('Error fetching reasons:', errorMessage, error);
+      return rejectWithValue(errorMessage);
+    }
   }
-};
+);
 
-export const createReason = (adminID, text) => async (dispatch) => {
-  dispatch(createReasonRequest());
-  try {
-    console.log(`Request URL: /reasons/${adminID}`, { text });
-    const response = await api.post(`/reasons/${adminID}`, { text });
-    console.log('Create reason response:', response.data);
-    dispatch(createReasonSuccess(response.data.data));
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message;
-    console.error('Error creating reason:', errorMessage, error);
-    dispatch(createReasonError(errorMessage));
+export const createReason = createAsyncThunk(
+  'reason/createReason',
+  async ({ adminID, text }, { rejectWithValue }) => {
+    try {
+      console.log(`Request URL: /reasons/${adminID}`, { text });
+      const response = await api.post(`/reasons/${adminID}`, { text });
+      console.log('Create reason response:', response.data);
+      return response.data.data;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      console.error('Error creating reason:', errorMessage, error);
+      return rejectWithValue(errorMessage);
+    }
   }
-};
+);
 
-export const updateReason = (adminID, reasonId, text) => async (dispatch) => {
-  dispatch(updateReasonRequest());
-  try {
-    console.log(`Request URL: /reasons/${adminID}/${reasonId}`, { text });
-    const response = await api.put(`/reasons/${adminID}/${reasonId}`, { text });
-    console.log('Update reason response:', response.data);
-    dispatch(updateReasonSuccess(response.data.data));
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message;
-    console.error('Error updating reason:', errorMessage, error);
-    dispatch(updateReasonError(errorMessage));
+export const updateReason = createAsyncThunk(
+  'reason/updateReason',
+  async ({ adminID, reasonId, text }, { rejectWithValue }) => {
+    try {
+      console.log(`Request URL: /reasons/${adminID}/${reasonId}`, { text });
+      const response = await api.put(`/reasons/${adminID}/${reasonId}`, { text });
+      console.log('Update reason response:', response.data);
+      return response.data.data;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      console.error('Error updating reason:', errorMessage, error);
+      return rejectWithValue(errorMessage);
+    }
   }
-};
+);
 
-export const deleteReason = (adminID, reasonId) => async (dispatch) => {
-  dispatch(deleteReasonRequest());
-  try {
-    console.log(`Request URL: /reasons/${adminID}/${reasonId}`);
-    const response = await api.delete(`/reasons/${adminID}/${reasonId}`);
-    console.log('Delete reason response:', response.data);
-    dispatch(deleteReasonSuccess(reasonId));
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || error.message;
-    console.error('Error deleting reason:', errorMessage, error);
-    dispatch(deleteReasonError(errorMessage));
+export const deleteReason = createAsyncThunk(
+  'reason/deleteReason',
+  async ({ adminID, reasonId }, { rejectWithValue }) => {
+    try {
+      console.log(`Request URL: /reasons/${adminID}/${reasonId}`);
+      const response = await api.delete(`/reasons/${adminID}/${reasonId}`);
+      console.log('Delete reason response:', response.data);
+      return reasonId;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message;
+      console.error('Error deleting reason:', errorMessage, error);
+      return rejectWithValue(errorMessage);
+    }
   }
-};
+);

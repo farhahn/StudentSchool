@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Select, { OnChangeValue, SelectInstance } from "react-select";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import styled, { keyframes } from "styled-components";
+import ReactPaginate from "react-paginate";
 import {
   fetchComplaints,
   addComplaint,
@@ -60,6 +62,13 @@ const actionTakenOptions: Option[] = [
   { value: "Resolved", label: "Resolved" },
 ];
 
+const itemsPerPageOptions: Option[] = [
+  { value: "5", label: "5" },
+  { value: "10", label: "10" },
+  { value: "20", label: "20" },
+  { value: "30", label: "30" },
+];
+
 // Animations
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(-20px); }
@@ -73,7 +82,7 @@ const scaleIn = keyframes`
 
 // Styled Components
 const Container = styled.div`
-  padding: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
   font-family: "Roboto", sans-serif;
@@ -81,17 +90,17 @@ const Container = styled.div`
   width: 100%;
   box-sizing: border-box;
   @media (max-width: 768px) {
-    padding: 1rem;
+    padding: clamp(0.8rem, 2.5vw, 1rem);
   }
   @media (max-width: 480px) {
-    padding: 0.5rem;
+    padding: clamp(0.5rem, 2vw, 0.8rem);
   }
 `;
 
 const Title = styled.h2`
   text-align: center;
   color: #2c3e50;
-  margin-bottom: 1.5rem;
+  margin-bottom: clamp(1rem, 3vw, 1.5rem);
   font-size: clamp(1.8rem, 5vw, 2.2rem);
   font-weight: 700;
   text-transform: uppercase;
@@ -102,7 +111,7 @@ const HeaderSection = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: clamp(1rem, 3vw, 1.5rem);
   flex-wrap: wrap;
   gap: 1rem;
   @media (max-width: 600px) {
@@ -127,6 +136,11 @@ const Button = styled.button`
   font-size: clamp(0.9rem, 3vw, 1rem);
   font-weight: 600;
   transition: transform 0.2s, box-shadow 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -138,36 +152,25 @@ const Button = styled.button`
 `;
 
 const FilterContainer = styled.div`
-  display: flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.8rem, 2vw, 1rem);
+  margin-bottom: clamp(1rem, 3vw, 1.5rem);
   & > * {
-    flex: 1;
-    min-width: 140px;
-    max-width: 180px;
+    min-width: 0;
   }
-  @media (max-width: 768px) {
-    & > * {
-      min-width: 120px;
-      max-width: 150px;
-    }
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
   }
-  @media (max-width: 480px) {
-    flex-direction: column;
-    align-items: stretch;
-    & > * {
-      min-width: 100%;
-      max-width: 100%;
-    }
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
 
 const ErrorMessage = styled.div`
   color: #e74c3c;
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: clamp(1rem, 3vw, 1.5rem);
   font-size: clamp(0.9rem, 3vw, 1rem);
   font-weight: 500;
 `;
@@ -192,7 +195,7 @@ const Table = styled.table`
 const Th = styled.th`
   background: linear-gradient(45deg, #3498db, #2980b9);
   color: white;
-  padding: 0.8rem;
+  padding: clamp(0.6rem, 2vw, 0.8rem);
   font-size: clamp(0.9rem, 3vw, 1rem);
   font-weight: 600;
   text-transform: uppercase;
@@ -200,7 +203,7 @@ const Th = styled.th`
 `;
 
 const Td = styled.td`
-  padding: 0.8rem;
+  padding: clamp(0.6rem, 2vw, 0.8rem);
   text-align: center;
   border-bottom: 1px solid #ecf0f1;
   font-size: clamp(0.85rem, 3vw, 0.95rem);
@@ -218,8 +221,13 @@ const ActionButton = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 3vw, 1.1rem);
   margin: 0 0.3rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.2s;
   &:hover {
     transform: scale(1.2);
@@ -244,9 +252,9 @@ const Modal = styled.div`
   left: 50%;
   transform: translate(-50%, -50%);
   background: white;
-  padding: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
   width: 90%;
-  max-width: 450px;
+  max-width: 500px;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   z-index: 1000;
@@ -256,25 +264,33 @@ const Modal = styled.div`
   overflow-y: auto;
   @media (max-width: 600px) {
     width: 95%;
-    padding: 1rem;
-    max-width: 400px;
+    padding: clamp(0.8rem, 2.5vw, 1rem);
   }
   @media (max-width: 480px) {
-    padding: 0.8rem;
-    max-width: 350px;
+    padding: clamp(0.6rem, 2vw, 0.8rem);
   }
 `;
 
 const FormContainer = styled.form`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(0.8rem, 2vw, 1rem);
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  grid-column: ${(props: { fullWidth?: boolean }) => (props.fullWidth ? '1 / -1' : 'auto')};
 `;
 
 const Label = styled.label`
-  font-size: clamp(0.9rem, 3vw, 1rem);
+  font-size: clamp(0.8rem, 3vw, 0.9rem);
   color: #2c3e50;
   font-weight: 500;
+  margin-bottom: 0.3rem;
 `;
 
 const Input = styled.input`
@@ -313,7 +329,8 @@ const ButtonGroup = styled.div`
   display: flex;
   gap: 0.8rem;
   justify-content: center;
-  margin-top: 1rem;
+  margin-top: clamp(0.8rem, 2vw, 1rem);
+  grid-column: 1 / -1;
   flex-wrap: wrap;
 `;
 
@@ -321,6 +338,28 @@ const CancelButton = styled(Button)`
   background: linear-gradient(45deg, #e74c3c, #c0392b);
   &:focus {
     box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.3);
+  }
+`;
+
+const PaginationContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: clamp(1rem, 3vw, 1.5rem);
+  gap: 0.8rem;
+`;
+
+const RecordCount = styled.div`
+  color: #2c3e50;
+  font-size: clamp(0.8rem, 3vw, 0.9rem);
+  font-weight: 500;
+`;
+
+const ItemsPerPageSelect = styled(Select)`
+  min-width: 0;
+  @media (max-width: 600px) {
+    width: 100%;
   }
 `;
 
@@ -333,6 +372,8 @@ const ComplaintPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const [newComplaint, setNewComplaint] = useState({
     complaintType: "",
@@ -390,6 +431,7 @@ const ComplaintPage: React.FC = () => {
       ...prev,
       [fieldName]: newValue ? newValue.value : "",
     }));
+    setCurrentPage(0); // Reset to first page on filter change
   };
 
   const handleSelectChange = (
@@ -501,6 +543,7 @@ const ComplaintPage: React.FC = () => {
     });
     setShowForm(false);
     setError(null);
+    setCurrentPage(0); // Reset to first page on form submission
   };
 
   const handleEdit = (id: string) => {
@@ -535,6 +578,11 @@ const ComplaintPage: React.FC = () => {
     }
   };
 
+  const handleItemsPerPageChange = (newValue: OnChangeValue<Option, false>) => {
+    setItemsPerPage(newValue ? Number(newValue.value) : 5);
+    setCurrentPage(0);
+  };
+
   const filteredComplaints = complaints.filter((complaint: Complaint) => {
     const matchesComplaintType = filters.complaintType ? complaint.complaintType === filters.complaintType : true;
     const matchesSource = filters.source ? complaint.source === filters.source : true;
@@ -543,6 +591,10 @@ const ComplaintPage: React.FC = () => {
     const matchesActionTaken = filters.actionTaken ? complaint.actionTaken === filters.actionTaken : true;
     return matchesComplaintType && matchesSource && matchesComplainantType && matchesDate && matchesActionTaken;
   });
+
+  const pageCount = Math.ceil(filteredComplaints.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredComplaints.slice(offset, offset + itemsPerPage);
 
   return (
     <>
@@ -555,6 +607,7 @@ const ComplaintPage: React.FC = () => {
             borderRadius: "8px",
             fontFamily: "Roboto, sans-serif",
             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+            fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
           }}
         />
         <Title>Complaint Management</Title>
@@ -563,82 +616,100 @@ const ComplaintPage: React.FC = () => {
         {reduxError && <ErrorMessage>{reduxError}</ErrorMessage>}
 
         <FilterContainer>
-          <Select
-            options={complaintTypes}
-            value={complaintTypes.find((opt) => opt.value === filters.complaintType) || null}
-            onChange={(newValue) => handleFilterChange("complaintType", newValue)}
-            placeholder="Complaint Type"
-            isClearable
-            isSearchable
-            aria-label="Filter by Complaint Type"
-            styles={{
-              control: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                padding: "0.2rem",
-                boxShadow: "none",
-                "&:hover": { borderColor: "#3498db" },
-                minWidth: "100%",
-              }),
-              menu: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                marginTop: "4px",
-                zIndex: 1000,
-              }),
-            }}
-          />
-          <Select
-            options={sources}
-            value={sources.find((opt) => opt.value === filters.source) || null}
-            onChange={(newValue) => handleFilterChange("source", newValue)}
-            placeholder="Source"
-            isClearable
-            isSearchable
-            aria-label="Filter by Source"
-            styles={{
-              control: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                padding: "0.2rem",
-                boxShadow: "none",
-                "&:hover": { borderColor: "#3498db" },
-                minWidth: "100%",
-              }),
-              menu: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                marginTop: "4px",
-                zIndex: 1000,
-              }),
-            }}
-          />
-          <Select
-            options={complainantTypeOptions}
-            value={complainantTypeOptions.find((opt) => opt.value === filters.complainantType) || null}
-            onChange={(newValue) => handleFilterChange("complainantType", newValue)}
-            placeholder="Complainant Type"
-            isClearable
-            isSearchable
-            aria-label="Filter by Complainant Type"
-            styles={{
-              control: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                padding: "0.2rem",
-                boxShadow: "none",
-                "&:hover": { borderColor: "#3498db" },
-                minWidth: "100%",
-              }),
-              menu: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                marginTop: "4px",
-                zIndex: 1000,
-              }),
-            }}
-          />
-          <div>
+          <FormGroup>
+            <Label htmlFor="filter-complaintType">Complaint Type</Label>
+            <Select
+              id="filter-complaintType"
+              options={complaintTypes}
+              value={complaintTypes.find((opt) => opt.value === filters.complaintType) || null}
+              onChange={(newValue) => handleFilterChange("complaintType", newValue)}
+              placeholder="Complaint Type"
+              isClearable
+              isSearchable
+              aria-label="Filter by Complaint Type"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  padding: "0.2rem",
+                  boxShadow: "none",
+                  "&:hover": { borderColor: "#3498db" },
+                  minWidth: "100%",
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  marginTop: "4px",
+                  zIndex: 1000,
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+              }}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="filter-source">Source</Label>
+            <Select
+              id="filter-source"
+              options={sources}
+              value={sources.find((opt) => opt.value === filters.source) || null}
+              onChange={(newValue) => handleFilterChange("source", newValue)}
+              placeholder="Source"
+              isClearable
+              isSearchable
+              aria-label="Filter by Source"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  padding: "0.2rem",
+                  boxShadow: "none",
+                  "&:hover": { borderColor: "#3498db" },
+                  minWidth: "100%",
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  marginTop: "4px",
+                  zIndex: 1000,
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+              }}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="filter-complainantType">Complainant Type</Label>
+            <Select
+              id="filter-complainantType"
+              options={complainantTypeOptions}
+              value={complainantTypeOptions.find((opt) => opt.value === filters.complainantType) || null}
+              onChange={(newValue) => handleFilterChange("complainantType", newValue)}
+              placeholder="Complainant Type"
+              isClearable
+              isSearchable
+              aria-label="Filter by Complainant Type"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  padding: "0.2rem",
+                  boxShadow: "none",
+                  "&:hover": { borderColor: "#3498db" },
+                  minWidth: "100%",
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  marginTop: "4px",
+                  zIndex: 1000,
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+              }}
+            />
+          </FormGroup>
+          <FormGroup>
             <Label htmlFor="filter-date">Date</Label>
             <Input
               id="filter-date"
@@ -647,33 +718,71 @@ const ComplaintPage: React.FC = () => {
               value={filters.date}
               onChange={(e) => setFilters((prev) => ({ ...prev, date: e.target.value }))}
               aria-label="Filter by Date"
+              style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
             />
-          </div>
-          <Select
-            options={actionTakenOptions}
-            value={actionTakenOptions.find((opt) => opt.value === filters.actionTaken) || null}
-            onChange={(newValue) => handleFilterChange("actionTaken", newValue)}
-            placeholder="Status"
-            isClearable
-            isSearchable
-            aria-label="Filter by Status"
-            styles={{
-              control: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                padding: "0.2rem",
-                boxShadow: "none",
-                "&:hover": { borderColor: "#3498db" },
-                minWidth: "100%",
-              }),
-              menu: (base) => ({
-                ...base,
-                borderRadius: "6px",
-                marginTop: "4px",
-                zIndex: 1000,
-              }),
-            }}
-          />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="filter-actionTaken">Status</Label>
+            <Select
+              id="filter-actionTaken"
+              options={actionTakenOptions}
+              value={actionTakenOptions.find((opt) => opt.value === filters.actionTaken) || null}
+              onChange={(newValue) => handleFilterChange("actionTaken", newValue)}
+              placeholder="Status"
+              isClearable
+              isSearchable
+              aria-label="Filter by Status"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  padding: "0.2rem",
+                  boxShadow: "none",
+                  "&:hover": { borderColor: "#3498db" },
+                  minWidth: "100%",
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  marginTop: "4px",
+                  zIndex: 1000,
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+              }}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="filter-itemsPerPage">Items per page</Label>
+            <ItemsPerPageSelect
+              id="filter-itemsPerPage"
+              options={itemsPerPageOptions}
+              value={itemsPerPageOptions.find((opt) => opt.value === itemsPerPage.toString()) || null}
+              onChange={(newValue) => handleItemsPerPageChange(newValue)}
+              placeholder="Items per page"
+              isClearable={false}
+              isSearchable={false}
+              aria-label="Items per page"
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  padding: "0.2rem",
+                  boxShadow: "none",
+                  "&:hover": { borderColor: "#3498db" },
+                  minWidth: "100%",
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+                menu: (base) => ({
+                  ...base,
+                  borderRadius: "6px",
+                  marginTop: "4px",
+                  zIndex: 1000,
+                  fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
+                }),
+              }}
+            />
+          </FormGroup>
         </FilterContainer>
 
         <HeaderSection>
@@ -702,7 +811,7 @@ const ComplaintPage: React.FC = () => {
 
         {loading ? (
           <ErrorMessage>Loading...</ErrorMessage>
-        ) : complaints.length === 0 ? (
+        ) : currentPageData.length === 0 ? (
           <ErrorMessage>No complaints available</ErrorMessage>
         ) : (
           <TableWrapper>
@@ -720,48 +829,63 @@ const ComplaintPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredComplaints.length > 0 ? (
-                  filteredComplaints.map((complaint: Complaint) => (
-                    <tr key={complaint._id}>
-                      <Td>{complaint.complaintType}</Td>
-                      <Td>{complaint.source}</Td>
-                      <Td>{complaint.complainantType}</Td>
-                      <Td>{complaint.name}</Td>
-                      <Td>{complaint.phone}</Td>
-                      <Td>{new Date(complaint.date).toLocaleDateString()}</Td>
-                      <Td>{complaint.actionTaken}</Td>
-                      <Td>
-                        <ActionButton
-                          onClick={() => handleEdit(complaint._id)}
-                          aria-label={`Edit complaint ${complaint._id}`}
-                          style={{ color: "#3498db" }}
-                        >
-                          📝
-                        </ActionButton>
-                        <ActionButton
-                          onClick={() => handleDelete(complaint._id)}
-                          aria-label={`Delete complaint ${complaint._id}`}
-                          style={{ color: "#e74c3c" }}
-                        >
-                          ❌
-                        </ActionButton>
-                        <ActionButton
-                          onClick={() => handlePhoneInquiry(complaint.phone || "")}
-                          aria-label={`Call ${complaint.phone || "unknown"}`}
-                          style={{ color: "#2ecc71" }}
-                        >
-                          📞
-                        </ActionButton>
-                      </Td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <Td colSpan={8}>No complaints available</Td>
+                {currentPageData.map((complaint: Complaint) => (
+                  <tr key={complaint._id}>
+                    <Td>{complaint.complaintType}</Td>
+                    <Td>{complaint.source}</Td>
+                    <Td>{complaint.complainantType}</Td>
+                    <Td>{complaint.name}</Td>
+                    <Td>{complaint.phone}</Td>
+                    <Td>{new Date(complaint.date).toLocaleDateString()}</Td>
+                    <Td>{complaint.actionTaken}</Td>
+                    <Td>
+                      <ActionButton
+                        onClick={() => handleEdit(complaint._id)}
+                        aria-label={`Edit complaint ${complaint._id}`}
+                        style={{ color: "#3498db" }}
+                      >
+                        📝
+                      </ActionButton>
+                      <ActionButton
+                        onClick={() => handleDelete(complaint._id)}
+                        aria-label={`Delete complaint ${complaint._id}`}
+                        style={{ color: "#e74c3c" }}
+                      >
+                        ❌
+                      </ActionButton>
+                      <ActionButton
+                        onClick={() => handlePhoneInquiry(complaint.phone || "")}
+                        aria-label={`Call ${complaint.phone || "unknown"}`}
+                        style={{ color: "#2ecc71" }}
+                      >
+                        📞
+                      </ActionButton>
+                    </Td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </Table>
+            <PaginationContainer>
+              <RecordCount>
+                Records: {currentPageData.length} of {filteredComplaints.length}
+              </RecordCount>
+              <ReactPaginate
+                previousLabel={'←'}
+                nextLabel={'→'}
+                pageCount={pageCount}
+                onPageChange={({ selected }) => {
+                  setCurrentPage(selected);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                containerClassName={'pagination'}
+                activeClassName={'active'}
+                pageClassName={'page'}
+                pageLinkClassName={'page-link'}
+                previousClassName={'page'}
+                nextClassName={'page'}
+                breakLabel={'...'}
+              />
+            </PaginationContainer>
           </TableWrapper>
         )}
 
@@ -770,8 +894,8 @@ const ComplaintPage: React.FC = () => {
             <ModalOverlay onClick={() => setShowForm(false)} aria-label="Close modal" />
             <Modal role="dialog" aria-labelledby="complaint-form-title">
               <h3 id="complaint-form-title">{editingId !== null ? "Edit Complaint" : "Add Complaint"}</h3>
-              <FormContainer onSubmit={handleSubmit}>
-                <div>
+              <FormContainer>
+                <FormGroup>
                   <Label htmlFor="complaintType">Complaint Type</Label>
                   <Select
                     id="complaintType"
@@ -790,17 +914,19 @@ const ComplaintPage: React.FC = () => {
                         borderRadius: "6px",
                         padding: "0.2rem",
                         minWidth: "100%",
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                       menu: (base) => ({
                         ...base,
                         borderRadius: "6px",
                         marginTop: "4px",
                         zIndex: 1000,
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                     }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="source">Source</Label>
                   <Select
                     id="source"
@@ -819,23 +945,25 @@ const ComplaintPage: React.FC = () => {
                         borderRadius: "6px",
                         padding: "0.2rem",
                         minWidth: "100%",
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                       menu: (base) => ({
                         ...base,
                         borderRadius: "6px",
                         marginTop: "4px",
                         zIndex: 1000,
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                     }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="complainantType">Complainant Type</Label>
                   <Select
                     id="complainantType"
-                    ref={inputRefs.complaintType}
+                    ref={inputRefs.complainantType}
                     options={complainantTypeOptions}
-                    value={complainantTypeOptions.find((opt) => opt.value === newComplaint.complaintType) || null}
+                    value={complainantTypeOptions.find((opt) => opt.value === newComplaint.complainantType) || null}
                     onChange={(newValue) => handleSelectChange("complainantType", newValue, "date")}
                     onKeyDown={(e) => handleSelectKeyDown(e, "complainantType", "date")}
                     placeholder="Select Complainant Type"
@@ -848,17 +976,19 @@ const ComplaintPage: React.FC = () => {
                         borderRadius: "6px",
                         padding: "0.2rem",
                         minWidth: "100%",
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                       menu: (base) => ({
                         ...base,
                         borderRadius: "6px",
                         marginTop: "4px",
                         zIndex: 1000,
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                     }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="date">Date</Label>
                   <Input
                     id="date"
@@ -870,9 +1000,10 @@ const ComplaintPage: React.FC = () => {
                     ref={inputRefs.date}
                     required
                     aria-label="Complaint Date"
+                    style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup fullWidth>
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
@@ -882,9 +1013,10 @@ const ComplaintPage: React.FC = () => {
                     onKeyDown={(e) => handleKeyDown(e, "actionTaken")}
                     ref={inputRefs.description}
                     aria-label="Complaint Description"
+                    style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="actionTaken">Action Taken</Label>
                   <Select
                     id="actionTaken"
@@ -903,30 +1035,32 @@ const ComplaintPage: React.FC = () => {
                         borderRadius: "6px",
                         padding: "0.2rem",
                         minWidth: "100%",
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                       menu: (base) => ({
                         ...base,
                         borderRadius: "6px",
                         marginTop: "4px",
                         zIndex: 1000,
+                        fontSize: "clamp(0.8rem, 3vw, 0.9rem)",
                       }),
                     }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup fullWidth>
                   <Label htmlFor="note">Note</Label>
-                  <Input
+                  <Textarea
                     id="note"
-                    type="text"
                     name="note"
                     value={newComplaint.note}
                     onChange={handleChange}
                     onKeyDown={(e) => handleKeyDown(e, "name")}
                     ref={inputRefs.note}
                     aria-label="Note"
+                    style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
@@ -937,9 +1071,10 @@ const ComplaintPage: React.FC = () => {
                     onKeyDown={(e) => handleKeyDown(e, "phone")}
                     ref={inputRefs.name}
                     aria-label="Complainant Name"
+                    style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
                   />
-                </div>
-                <div>
+                </FormGroup>
+                <FormGroup>
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
@@ -950,8 +1085,9 @@ const ComplaintPage: React.FC = () => {
                     onKeyDown={(e) => handleKeyDown(e)}
                     ref={inputRefs.phone}
                     aria-label="Complainant Phone"
+                    style={{ fontSize: "clamp(0.8rem, 3vw, 0.9rem)" }}
                   />
-                </div>
+                </FormGroup>
                 <ButtonGroup>
                   <Button type="submit" aria-label="Save Complaint">
                     Save
@@ -965,6 +1101,66 @@ const ComplaintPage: React.FC = () => {
           </>
         )}
       </Container>
+      <style jsx global>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: clamp(0.8rem, 2vw, 1rem) 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #bdc3c7;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #2c3e50;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background: linear-gradient(45deg, #2ecc71, #27ae60);
+          color: white;
+          border-color: #27ae60;
+          font-weight: bold;
+        }
+        @media (max-width: 600px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+      `}</style>
     </>
   );
 };

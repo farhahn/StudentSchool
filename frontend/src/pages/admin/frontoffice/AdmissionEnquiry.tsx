@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Phone as PhoneIcon } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
+import ReactPaginate from 'react-paginate';
 import {
   getAllAdmissionEnquiries, createAdmissionEnquiry, updateAdmissionEnquiry, deleteAdmissionEnquiry, clearAdmissionEnquiryError
 } from '../../../redux/FrontOffice/Enquiry/admissionEnquiryHandle';
@@ -18,6 +19,8 @@ const AdmissionEnquiry: React.FC = () => {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const dispatch = useDispatch();
   const enquiryState = useSelector((state: any) => state.admissionEnquiry || { enquiriesList: [], loading: false, error: null });
@@ -117,8 +120,50 @@ const AdmissionEnquiry: React.FC = () => {
     enquiry.className?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const pageCount = Math.ceil(filteredEnquiries.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredEnquiries.slice(offset, offset + itemsPerPage);
+
+  const handleItemsPerPageChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setItemsPerPage(Number(event.target.value));
+    setCurrentPage(0); // Reset to first page when changing items per page
+  };
+
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+      <style>
+        {`
+          .pagination {
+            display: flex;
+            justify-content: center;
+            list-style: none;
+            padding: 0;
+            margin-top: 1rem;
+          }
+          .page {
+            margin: 0 5px;
+          }
+          .page-link {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #f9f9f9;
+            color: #333;
+            transition: all 0.2s ease;
+            text-decoration: none;
+          }
+          .page-link:hover {
+            background-color: #e0e0e0;
+          }
+          .active .page-link {
+            background-color: #27ae60;
+            color: white;
+            border-color: #27ae60;
+            font-weight: bold;
+          }
+        `}
+      </style>
       <Typography
         variant="h4"
         sx={{
@@ -137,9 +182,24 @@ const AdmissionEnquiry: React.FC = () => {
         <Grid item xs={12}>
           <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2526' }}>
-                Search Enquiries
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526' }}>
+                  Search Enquiries
+                </Typography>
+                <FormControl sx={{ minWidth: 120 }}>
+                  <InputLabel>Items per page</InputLabel>
+                  <Select
+                    value={itemsPerPage}
+                    onChange={handleItemsPerPageChange}
+                    label="Items per page"
+                    size="small"
+                  >
+                    {[5, 10, 20, 30].map((n) => (
+                      <MenuItem key={n} value={n}>{n} / page</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} sm={6} md={2.4}>
                   <FormControl fullWidth>
@@ -269,14 +329,14 @@ const AdmissionEnquiry: React.FC = () => {
                           Loading...
                         </TableCell>
                       </TableRow>
-                    ) : filteredEnquiries.length === 0 ? (
+                    ) : currentPageData.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} sx={{ textAlign: 'center' }}>
                           No enquiries found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredEnquiries.map((enquiry: any, idx: number) => (
+                      currentPageData.map((enquiry: any, idx: number) => (
                         <TableRow
                           key={enquiry._id}
                           sx={{
@@ -315,9 +375,22 @@ const AdmissionEnquiry: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Typography sx={{ mt: 2, color: '#1a2526' }}>
-                Records: {filteredEnquiries.length}
-              </Typography>
+              <ReactPaginate
+                previousLabel={'←'}
+                nextLabel={'→'}
+                pageCount={pageCount}
+                onPageChange={({ selected }) => {
+                  setCurrentPage(selected);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                containerClassName={'pagination'}
+                activeClassName={'active'}
+                pageClassName={'page'}
+                pageLinkClassName={'page-link'}
+                previousClassName={'page'}
+                nextClassName={'page'}
+                breakLabel={'...'}
+              />
             </CardContent>
           </Card>
         </Grid>

@@ -10,7 +10,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { CSVLink } from 'react-csv';
 import {
   getAllCategoryCards,
-} from '../../../redux/categoryRelated/categoryHandle';
+} from '../../../redux/categoryRelated/categoryCard';
 import {
   getAllItems,
   createItem,

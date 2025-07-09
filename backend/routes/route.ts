@@ -119,7 +119,7 @@ router.get('/postal-receives/:adminID',  postalReceiveController.getPostalReceiv
 router.post('/postal-receive',  upload.single('document'), postalReceiveController.addPostalReceive);
 router.put('/postal-receive/:id',  upload.single('document'), postalReceiveController.updatePostalReceive);
 router.delete('/postal-receive/:id',  postalReceiveController.deletePostalReceive);
-const{
+const {
   getPhoneCallLogs,
   addPhoneCallLog,
   updatePhoneCallLog,
@@ -130,6 +130,7 @@ router.get("/phoneCallLogs/:adminID", getPhoneCallLogs);
 router.post("/phoneCallLog", addPhoneCallLog);
 router.put("/phoneCallLog/:id", updatePhoneCallLog);
 router.delete("/phoneCallLog/:id", deletePhoneCallLog);
+ 
 
 const {
   getEntries,
@@ -267,11 +268,16 @@ router.get('/bulkDeleteStudents/:adminID', getAllStudents);
 router.delete('/bulkDeleteStudents/:adminID', bulkDeleteStudents);
 
 
-const { getAllCategories, createCategory, deleteCategory } = require('../controllers/categoryController');
+const categoryController = require('../controllers/categoryController');
 
-router.get('/categories/:adminID', getAllCategories);
-router.post('/categories/:adminID', createCategory);
-router.delete('/categories/:adminID/:categoryId', deleteCategory);
+console.log('Registering category routes');
+router.get('/categories/:adminID', categoryController.getCategories);
+router.post('/category', categoryController.addCategory);
+router.put('/category/:id', categoryController.updateCategory);
+router.delete('/category/:id', categoryController.deleteCategory);
+
+
+
 
 const { getAllHouses, createHouse, deleteHouse } = require('../controllers/houseController');
 
@@ -416,13 +422,12 @@ router.get('/reminders/:adminID', reminderController.getReminders);
 router.put('/reminders/:adminID', reminderController.updateReminders);
 
   const {
-                createStore, 
-                getStores, 
-                updateStore, 
-                deleteStore, 
-                getStoreById 
-              } 
-              = require('../controllers/store-controller');
+  createStore,
+  getStores,
+  updateStore,
+  deleteStore,
+  getStoreById,
+} = require('../controllers/store-controller');
 
 
 /* const { 
@@ -561,27 +566,18 @@ router.delete('/suppliers/:id', deleteSupplier);         // Delete Supplier
 
 
 const {
+  getAllCategoryCards,
   createCategoryCard,
-  getCategoryCards,
-  getCategoryCardById,
   updateCategoryCard,
-  deleteCategoryCard
-} = require('../controllers/category2Controller.ts');
+  deleteCategoryCard,
+  searchCategoryCards,
+} = require('../controllers/categoryCard');
 
-// Create CategoryCard
-router.post('/categoryCards', createCategoryCard);
-
-// Get all CategoryCards (optionally by adminID)
-router.get('/categoryCards', getCategoryCards);
-
-// Get CategoryCard by ID
-router.get('/categoryCards/:id', getCategoryCardById);
-
-// Update CategoryCard by ID
-router.put('/categoryCards/:id', updateCategoryCard);
-
-// Delete CategoryCard by ID
-router.delete('/categoryCards/:id', deleteCategoryCard);
+router.get('/category-cards/:adminID', getAllCategoryCards);
+router.get('/category-cards/search/:adminID', searchCategoryCards);
+router.post('/category-card', createCategoryCard);
+router.put('/category-card/:id', updateCategoryCard);
+router.delete('/category-card/:id', deleteCategoryCard);
 
 
 
@@ -694,14 +690,14 @@ router.post('/class-teacher-assignment', classTeacherAssignmentController.addCla
 router.put('/class-teacher-assignment/:id', classTeacherAssignmentController.updateClassTeacherAssignment);
 router.delete('/class-teacher-assignment/:id', classTeacherAssignmentController.deleteClassTeacherAssignment);
 
-const timetableController = require('../controllers/timetableController');
+// const timetableController = require('../controllers/timetableController');
 
-// Debug: Log controller import
-console.log('timetableController imported:', timetableController);
+// // Debug: Log controller import
+// console.log('timetableController imported:', timetableController);
 
-router.get('/:adminID/:teacherId', timetableController.getTeacherTimetable);
-router.post('/attendance/:adminID', timetableController.addAttendance);
-router.post('/:adminID', timetableController.addTimetable);
+// router.get('/:adminID/:teacherId', timetableController.getTeacherTimetable);
+// router.post('/attendance/:adminID', timetableController.addAttendance);
+// router.post('/:adminID', timetableController.addTimetable);
 
 
 

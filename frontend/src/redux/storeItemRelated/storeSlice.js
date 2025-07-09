@@ -1,9 +1,8 @@
-// storeSlice.js (Frontend Redux Slice)
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   storesList: [],
-  storDetails: {},
+  storeDetails: {},
   loading: false,
   error: null,
   response: null,
@@ -18,14 +17,13 @@ const storeSlice = createSlice({
       state.error = null;
     },
     fetchSuccess: (state, action) => {
-      state.storesList = action.payload;
+      state.storesList = Array.isArray(action.payload) ? action.payload : [];
       state.loading = false;
     },
     fetchFailed: (state, action) => {
       state.error = action.payload;
       state.loading = false;
     },
-
     getDetailsSuccess: (state, action) => {
       state.storeDetails = action.payload;
       state.loading = false;

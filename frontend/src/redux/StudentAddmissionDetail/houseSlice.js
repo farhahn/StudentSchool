@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { fetchAllHouses, createHouse, deleteHouse } from './houseHandle';
 
 const houseSlice = createSlice({
   name: 'house',
@@ -11,59 +12,6 @@ const houseSlice = createSlice({
     status: 'idle',
   },
   reducers: {
-    fetchHousesRequest: (state) => {
-      state.loading = true;
-      state.error = null;
-      state.status = 'pending';
-    },
-    fetchHousesSuccess: (state, action) => {
-      console.log('fetchHousesSuccess payload:', JSON.stringify(action.payload, null, 2));
-      state.houses = Array.isArray(action.payload) ? action.payload : [];
-      state.loading = false;
-      state.error = null;
-      state.status = 'succeeded';
-    },
-    fetchHousesError: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-      state.status = 'failed';
-      console.error('Error in house slice:', action.payload);
-    },
-    createHouseRequest: (state) => {
-      state.loading = true;
-      state.error = null;
-      state.status = 'pending';
-    },
-    createHouseSuccess: (state, action) => {
-      state.houses.push(action.payload);
-      state.newHouse = { name: '', description: '', class: '' };
-      state.loading = false;
-      state.error = null;
-      state.status = 'succeeded';
-    },
-    createHouseError: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-      state.status = 'failed';
-      console.error('Error in house slice:', action.payload);
-    },
-    deleteHouseRequest: (state) => {
-      state.loading = true;
-      state.error = null;
-      state.status = 'pending';
-    },
-    deleteHouseSuccess: (state, action) => {
-      state.houses = state.houses.filter((house) => house._id !== action.payload);
-      state.loading = false;
-      state.error = null;
-      state.status = 'succeeded';
-    },
-    deleteHouseError: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-      state.status = 'failed';
-      console.error('Error in house slice:', action.payload);
-    },
     setNewHouse: (state, action) => {
       state.newHouse = action.payload;
     },
@@ -79,21 +27,67 @@ const houseSlice = createSlice({
       state.status = 'idle';
     },
   },
+  extraReducers: (builder) => {
+    builder
+      // fetchAllHouses
+      .addCase(fetchAllHouses.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.status = 'pending';
+      })
+      .addCase(fetchAllHouses.fulfilled, (state, action) => {
+        console.log('fetchAllHouses fulfilled payload:', JSON.stringify(action.payload, null, 2));
+        state.houses = Array.isArray(action.payload) ? action.payload : [];
+        state.loading = false;
+        state.error = null;
+        state.status = 'succeeded';
+      })
+      .addCase(fetchAllHouses.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to fetch houses';
+        state.status = 'failed';
+        console.error('fetchAllHouses error:', action.payload);
+      })
+      // createHouse
+      .addCase(createHouse.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.status = 'pending';
+      })
+      .addCase(createHouse.fulfilled, (state, action) => {
+        state.houses.push(action.payload);
+        state.newHouse = { name: '', description: '', class: '' };
+        state.loading = false;
+        state.error = null;
+        state.status = 'succeeded';
+      })
+      .addCase(createHouse.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to create house';
+        state.status = 'failed';
+        console.error('createHouse error:', action.payload);
+      })
+      // deleteHouse
+      .addCase(deleteHouse.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.status = 'pending';
+      })
+      .addCase(deleteHouse.fulfilled, (state, action) => {
+        state.houses = state.houses.filter((house) => house._id !== action.payload);
+        state.loading = false;
+        state.error = null;
+        state.status = 'succeeded';
+      })
+      .addCase(deleteHouse.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to delete house';
+        state.status = 'failed';
+        console.error('deleteHouse error:', action.payload);
+      });
+  },
 });
 
-export const {
-  fetchHousesRequest,
-  fetchHousesSuccess,
-  fetchHousesError,
-  createHouseRequest,
-  createHouseSuccess,
-  createHouseError,
-  deleteHouseRequest,
-  deleteHouseSuccess,
-  deleteHouseError,
-  setNewHouse,
-  setSearch,
-  resetHouse,
-} = houseSlice.actions;
+export const { setNewHouse, setSearch, resetHouse } = houseSlice.actions;
 
 export default houseSlice.reducer;

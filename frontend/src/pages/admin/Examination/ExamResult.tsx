@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState, useEffect, useRef } from 'react';
+import  { useDispatch, useSelector } from 'react-redux';
 import Select, { StylesConfig } from 'react-select';
 import {
   getAllExamResults,
@@ -36,10 +35,16 @@ import {
   DialogActions,
   InputAdornment,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select as MUISelect,
+  MenuItem,
 } from '@mui/material';
 import { Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Print as PrintIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { CSVLink } from 'react-csv';
 import { FaPlus, FaMinus } from 'react-icons/fa';
+import styled from 'styled-components';
+import ReactPaginate from 'react-paginate';
 
 // TypeScript interfaces
 interface Subject {
@@ -47,7 +52,7 @@ interface Subject {
   marksObtained: string | number;
   subjectCode: string;
   grade?: string;
-  attendance?: string; // Added to track present/absent
+  attendance?: string;
 }
 
 interface ExamResult {
@@ -110,7 +115,125 @@ interface RootState {
   };
 }
 
-// Custom styles for react-select to improve responsiveness
+// Styled Components
+const Container = styled(Box)`
+  padding: 16px;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  @media (min-width: 960px) {
+    padding: 32px;
+  }
+`;
+
+const Heading = styled(Typography)`
+  text-align: center;
+  font-weight: 700;
+  color: #1a2526;
+  margin-bottom: 32px;
+  font-size: 1.5rem;
+  @media (min-width: 960px) {
+    font-size: 2.125rem;
+  }
+`;
+
+const CriteriaCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+`;
+
+const TableCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+`;
+
+const SubHeading = styled(Typography)`
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #1a2526;
+`;
+
+const CriteriaContainer = styled(Box)`
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  @media (max-width: 600px) {
+    flex-direction: column;
+  }
+`;
+
+const SearchContainer = styled(Box)`
+  display: flex;
+  gap: 8px;
+  @media (max-width: 600px) {
+    flex-direction: column;
+  }
+`;
+
+const AddButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #2e7d32;
+  color: white;
+  &:hover {
+    background-color: #1b5e20;
+  }
+`;
+
+const SearchButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #1976d2;
+  color: white;
+  &:hover {
+    background-color: #115293;
+  }
+`;
+
+const CancelButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #f44336;
+  color: white;
+  &:hover {
+    background-color: #d32f2f;
+  }
+`;
+
+const StyledTableContainer = styled(TableContainer)`
+  box-shadow: none;
+  background-color: #fff;
+  overflow-x: auto;
+`;
+
+const StyledTableRow = styled(TableRow)`
+  &:nth-of-type(odd) {
+    background-color: #f9f9f9;
+  }
+  &:hover {
+    background-color: #e0f7fa;
+  }
+`;
+
+const PaginationContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  gap: 10px;
+`;
+
+const FormContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+`;
+
+// Custom styles for react-select
 const selectStyles: StylesConfig = {
   control: (provided) => ({
     ...provided,
@@ -141,7 +264,7 @@ const selectStyles: StylesConfig = {
 
 // Function to convert marks to Grade Point and Letter Grade
 const getGrade = (marks: number): { gpa: number; grade: string } => {
-  if (marks > 100 || marks < 0) return { gpa: 0.0, grade: 'N/A' }; // Invalid marks
+  if (marks > 100 || marks < 0) return { gpa: 0.0, grade: 'N/A' };
   if (marks >= 97) return { gpa: 4.0, grade: 'A+' };
   if (marks >= 93) return { gpa: 4.0, grade: 'A' };
   if (marks >= 90) return { gpa: 3.7, grade: 'A-' };
@@ -181,7 +304,15 @@ const calculateGPAandGrade = (subjects: Subject[], creditHoursPerSubject: number
 };
 
 const ExamResult = () => {
-  // State for dropdown selections and form
+  const dispatch = useDispatch();
+  const { examResult, fclass, sections, admissionForms, user } = useSelector((state: RootState) => state);
+  const { examResultsList, loading: examLoading, error: examError } = examResult;
+  const { fclassesList, loading: classLoading, error: classError } = fclass;
+  const { sectionsList, loading: sectionLoading, error: sectionError } = sections;
+  const { admissionForms: admissionFormsList, loading: admissionLoading, error: admissionError } = admissionForms;
+  const adminID = user.currentUser?._id;
+
+  // State for dropdown selections, form, and pagination
   const [selectedExamGroup, setSelectedExamGroup] = useState('');
   const [selectedExamType, setSelectedExamType] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
@@ -192,6 +323,14 @@ const ExamResult = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [isExamGroupSelectOpen, setIsExamGroupSelectOpen] = useState(false);
+  const [isExamTypeSelectOpen, setIsExamTypeSelectOpen] = useState(false);
+  const [isSessionSelectOpen, setIsSessionSelectOpen] = useState(false);
+  const [isClassSelectOpen, setIsClassSelectOpen] = useState(false);
+  const [isSectionSelectOpen, setIsSectionSelectOpen] = useState(false);
+  const [isAdmissionSelectOpen, setIsAdmissionSelectOpen] = useState(false);
   const [formData, setFormData] = useState({
     admissionNo: '',
     rollNo: '',
@@ -204,14 +343,24 @@ const ExamResult = () => {
     subjects: [{ subjectName: '', marksObtained: '', subjectCode: '', grade: '', attendance: 'Present' }],
   });
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
+  const [filteredExamResults, setFilteredExamResults] = useState<ExamResult[]>([]);
+  const [subjectAttendanceOpen, setSubjectAttendanceOpen] = useState<boolean[]>([]);
 
-  const dispatch = useDispatch();
-  const { examResult, fclass, sections, admissionForms, user } = useSelector((state: RootState) => state);
-  const { examResultsList, loading: examLoading, error: examError } = examResult;
-  const { fclassesList, loading: classLoading, error: classError } = fclass;
-  const { sectionsList, loading: sectionLoading, error: sectionError } = sections;
-  const { admissionForms: admissionFormsList, loading: admissionLoading, error: admissionError } = admissionForms;
-  const adminID = user.currentUser?._id;
+  // Refs for form fields and buttons
+  const classRef = useRef(null);
+  const sectionRef = useRef(null);
+  const admissionRef = useRef(null);
+  const examGroupRef = useRef(null);
+  const examTypeRef = useRef(null);
+  const sessionRef = useRef(null);
+  const subjectRefs = useRef<(HTMLInputElement | null)[][]>([]);
+  const saveButtonRef = useRef(null);
+
+  // Initialize refs for subjects
+  useEffect(() => {
+    subjectRefs.current = formData.subjects.map(() => [null, null, null, null]);
+    setSubjectAttendanceOpen(formData.subjects.map(() => false));
+  }, [formData.subjects.length]);
 
   // Dropdown options
   const examGroups = ["Class 4 (Pass / Fail)", "Class 5 (Pass / Fail)"];
@@ -270,7 +419,7 @@ const ExamResult = () => {
   }, [fclassesList, classOptions, formSectionOptions, admissionOptions, examResultsList]);
 
   const handleSearch = () => {
-    // Filtering is handled in filteredExamResults
+    setCurrentPage(0); // Reset to first page on search
   };
 
   const handleSort = (column: string) => {
@@ -309,6 +458,7 @@ const ExamResult = () => {
     });
     setEditId(null);
     setIsPopupOpen(true);
+    setTimeout(() => classRef.current?.focus(), 0); // Focus first field
   };
 
   const handleClosePopup = () => {
@@ -325,6 +475,12 @@ const ExamResult = () => {
       section: '',
       subjects: [{ subjectName: '', marksObtained: '', subjectCode: '', grade: '', attendance: 'Present' }],
     });
+    setIsExamGroupSelectOpen(false);
+    setIsExamTypeSelectOpen(false);
+    setIsSessionSelectOpen(false);
+    setIsClassSelectOpen(false);
+    setIsSectionSelectOpen(false);
+    setIsAdmissionSelectOpen(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, index: number | null = null, field: string | null = null) => {
@@ -426,6 +582,7 @@ const ExamResult = () => {
       .then(() => {
         setSnack({ open: true, message: editId ? 'Exam result updated successfully' : 'Exam result added successfully', severity: 'success' });
         handleClosePopup();
+        setCurrentPage(0); // Reset to first page after adding/updating
       })
       .catch((err) => {
         setSnack({ open: true, message: err.message || 'Failed to save exam result', severity: 'error' });
@@ -433,7 +590,6 @@ const ExamResult = () => {
   };
 
   const handleEdit = (result: ExamResult) => {
-    // Calculate grades, grand total, and percent for subjects on edit
     const subjectsWithGrades = result.subjects.map((sub) => {
       const marks = sub.attendance === 'Absent' ? 0 : Number(sub.marksObtained);
       const { grade } = isNaN(marks) || marks < 0 || marks > 100 ? { gpa: 0, grade: 'N/A' } : getGrade(marks);
@@ -453,6 +609,7 @@ const ExamResult = () => {
     });
     setEditId(result._id || null);
     setIsPopupOpen(true);
+    setTimeout(() => classRef.current?.focus(), 0); // Focus first field
   };
 
   const handleDelete = (id: string) => {
@@ -464,6 +621,7 @@ const ExamResult = () => {
       dispatch(deleteExamResult(id, adminID))
         .then(() => {
           setSnack({ open: true, message: 'Exam result deleted successfully', severity: 'info' });
+          setCurrentPage(0); // Reset to first page after deletion
         })
         .catch((err) => {
           setSnack({ open: true, message: err.message || 'Failed to delete exam result', severity: 'error' });
@@ -480,25 +638,97 @@ const ExamResult = () => {
     setSnack({ open: true, message: 'Printing exam results', severity: 'info' });
   };
 
-  const filteredExamResults = examResultsList.map((result) => {
-    const subjectsWithGrades = result.subjects.map((sub) => {
-      const marks = sub.attendance === 'Absent' ? 0 : Number(sub.marksObtained);
-      const { grade } = isNaN(marks) || marks < 0 || marks > 100 ? { gpa: 0, grade: 'N/A' } : getGrade(marks);
-      return { ...sub, grade };
+  const updateSubjectAttendanceOpen = (index: number, open: boolean) => {
+    const newOpenStates = [...subjectAttendanceOpen];
+    newOpenStates[index] = open;
+    setSubjectAttendanceOpen(newOpenStates);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | null, index: number | null = null, field: string | null = null) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (index !== null && field) {
+        // Handle subject fields
+        if (field === 'subjectName' && subjectRefs.current[index][1]) {
+          subjectRefs.current[index][1].focus();
+        } else if (field === 'marksObtained' && subjectRefs.current[index][2]) {
+          subjectRefs.current[index][2].focus();
+        } else if (field === 'subjectCode' && subjectRefs.current[index][3]) {
+          setTimeout(() => {
+            subjectRefs.current[index][3].focus();
+            updateSubjectAttendanceOpen(index, true);
+          }, 0);
+        } else if (field === 'attendance') {
+          // Move to next subject or save
+          if (index < formData.subjects.length - 1 && subjectRefs.current[index + 1][0]) {
+            subjectRefs.current[index + 1][0].focus();
+          } else {
+            saveButtonRef.current?.focus();
+          }
+        }
+      } else if (nextRef && nextRef.current) {
+        // Handle top-level fields
+        if (nextRef === examGroupRef) {
+          setIsExamGroupSelectOpen(true);
+          setTimeout(() => examGroupRef.current?.focus(), 0);
+        } else if (nextRef === examTypeRef) {
+          setIsExamTypeSelectOpen(true);
+          setTimeout(() => examTypeRef.current?.focus(), 0);
+        } else if (nextRef === sessionRef) {
+          setIsSessionSelectOpen(true);
+          setTimeout(() => sessionRef.current?.focus(), 0);
+        } else if (nextRef === classRef) {
+          setIsClassSelectOpen(true);
+          setTimeout(() => classRef.current?.focus(), 0);
+        } else if (nextRef === sectionRef) {
+          setIsSectionSelectOpen(true);
+          setTimeout(() => sectionRef.current?.focus(), 0);
+        } else if (nextRef === admissionRef) {
+          setIsAdmissionSelectOpen(true);
+          setTimeout(() => admissionRef.current?.focus(), 0);
+        } else {
+          nextRef.current.focus();
+        }
+      } else {
+        handleSave();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const updatedResults = examResultsList.map((result) => {
+      const subjectsWithGrades = result.subjects.map((sub) => {
+        const marks = sub.attendance === 'Absent' ? 0 : Number(sub.marksObtained);
+        const { grade } = isNaN(marks) || marks < 0 || marks > 100 ? { gpa: 0, grade: 'N/A' } : getGrade(marks);
+        return { ...sub, grade };
+      });
+      const { gpa, overallGrade, grandTotal, percent } = calculateGPAandGrade(subjectsWithGrades);
+      return { ...result, subjects: subjectsWithGrades, grandTotal, percent, gpa, overallGrade };
+    }).filter((result) => {
+      const groupMatch = !selectedExamGroup || result.examGroup === selectedExamGroup;
+      const typeMatch = !selectedExamType || result.examType === selectedExamType;
+      const sessionMatch = !selectedSession || result.session === selectedSession;
+      const classMatch = !selectedClass || result.classId._id === selectedClass;
+      const sectionMatch = !selectedSection || result.section === selectedSection;
+      const searchMatch =
+        result.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        result.admissionNo.toLowerCase().includes(searchTerm.toLowerCase());
+      return groupMatch && typeMatch && sessionMatch && classMatch && sectionMatch && searchMatch;
     });
-    const { gpa, overallGrade, grandTotal, percent } = calculateGPAandGrade(subjectsWithGrades);
-    return { ...result, subjects: subjectsWithGrades, grandTotal, percent, gpa, overallGrade };
-  }).filter((result) => {
-    const groupMatch = !selectedExamGroup || result.examGroup === selectedExamGroup;
-    const typeMatch = !selectedExamType || result.examType === selectedExamType;
-    const sessionMatch = !selectedSession || result.session === selectedSession;
-    const classMatch = !selectedClass || result.classId._id === selectedClass;
-    const sectionMatch = !selectedSection || result.section === selectedSection;
-    const searchMatch =
-      result.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.admissionNo.toLowerCase().includes(searchTerm.toLowerCase());
-    return groupMatch && typeMatch && sessionMatch && classMatch && sectionMatch && searchMatch;
-  });
+    setFilteredExamResults(updatedResults);
+    setCurrentPage(0); // Reset to first page when filters change
+  }, [examResultsList, selectedExamGroup, selectedExamType, selectedSession, selectedClass, selectedSection, searchTerm]);
+
+  // Pagination logic
+  const offset = currentPage * itemsPerPage;
+  const displayedResults = filteredExamResults || [];
+  const currentPageData = displayedResults.slice(offset, offset + itemsPerPage);
+  const pageCount = Math.ceil(displayedResults.length / itemsPerPage);
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
 
   const csvData = filteredExamResults.map((result) => ({
     AdmissionNo: result.admissionNo,
@@ -522,57 +752,81 @@ const ExamResult = () => {
   }));
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
-      <Typography variant="h4" sx={{ textAlign: 'center', fontWeight: 700, color: '#333', mb: 4 }}>
-        Exam Result Management
-      </Typography>
-
-      <Grid container spacing={2}>
-        {/* Select Criteria */}
+    <Container>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+      <Heading variant="h4">Exam Result Management</Heading>
+      <Grid container spacing={3}>
+        {/* Select Criteria Section */}
         <Grid item xs={12}>
-          <Card sx={{ p: { xs: 1, sm: 2 }, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <CriteriaCard>
             <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', mb: 2 }}>
-                Select Criteria
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Select
-                    options={examGroups.map((group) => ({ value: group, label: group }))}
-                    value={examGroups.find((group) => group === selectedExamGroup) ? { value: selectedExamGroup, label: selectedExamGroup } : null}
-                    onChange={(newValue) => setSelectedExamGroup(newValue ? newValue.value : '')}
-                    placeholder="Select Exam Group"
-                    isClearable
-                    isSearchable
-                    styles={selectStyles}
-                    menuPortalTarget={document.body}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Select
-                    options={examTypes.map((type) => ({ value: type, label: type }))}
-                    value={examTypes.find((type) => type === selectedExamType) ? { value: selectedExamType, label: selectedExamType } : null}
-                    onChange={(newValue) => setSelectedExamType(newValue ? newValue.value : '')}
-                    placeholder="Select Exam Type"
-                    isClearable
-                    isSearchable
-                    styles={selectStyles}
-                    menuPortalTarget={document.body}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Select
-                    options={sessions.map((session) => ({ value: session, label: session }))}
-                    value={sessions.find((session) => session === selectedSession) ? { value: selectedSession, label: selectedSession } : null}
-                    onChange={(newValue) => setSelectedSession(newValue ? newValue.value : '')}
-                    placeholder="Select Session"
-                    isClearable
-                    isSearchable
-                    styles={selectStyles}
-                    menuPortalTarget={document.body}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <SubHeading variant="h6">Select Criteria</SubHeading>
+                <AddButton
+                  variant="contained"
+                  onClick={handleAdd}
+                  startIcon={<FaPlus />}
+                  aria-label="Add Exam Result"
+                >
+                  Add Result
+                </AddButton>
+              </Box>
+              <CriteriaContainer>
+                <FormControl sx={{ minWidth: 200 }} size="small">
+                  <InputLabel id="exam-group-label">Exam Group</InputLabel>
+                  <MUISelect
+                    value={selectedExamGroup}
+                    onChange={(e) => setSelectedExamGroup(e.target.value)}
+                    label="Exam Group"
+                    labelId="exam-group-label"
+                    aria-label="Select Exam Group"
+                  >
+                    <MenuItem value="">Select Exam Group</MenuItem>
+                    {examGroups.map((group) => (
+                      <MenuItem key={group} value={group}>{group}</MenuItem>
+                    ))}
+                  </MUISelect>
+                </FormControl>
+                <FormControl sx={{ minWidth: 200 }} size="small">
+                  <InputLabel id="exam-type-label">Exam Type</InputLabel>
+                  <MUISelect
+                    value={selectedExamType}
+                    onChange={(e) => setSelectedExamType(e.target.value)}
+                    label="Exam Type"
+                    labelId="exam-type-label"
+                    aria-label="Select Exam Type"
+                  >
+                    <MenuItem value="">Select Exam Type</MenuItem>
+                    {examTypes.map((type) => (
+                      <MenuItem key={type} value={type}>{type}</MenuItem>
+                    ))}
+                  </MUISelect>
+                </FormControl>
+                <FormControl sx={{ minWidth: 200 }} size="small">
+                  <InputLabel id="session-label">Session</InputLabel>
+                  <MUISelect
+                    value={selectedSession}
+                    onChange={(e) => setSelectedSession(e.target.value)}
+                    label="Session"
+                    labelId="session-label"
+                    aria-label="Select Session"
+                  >
+                    <MenuItem value="">Select Session</MenuItem>
+                    {sessions.map((session) => (
+                      <MenuItem key={session} value={session}>{session}</MenuItem>
+                    ))}
+                  </MUISelect>
+                </FormControl>
+                <FormControl sx={{ minWidth: 200 }} size="small">
                   {classLoading ? (
                     <CircularProgress size={24} />
                   ) : fclassesList.length === 0 ? (
@@ -592,8 +846,8 @@ const ExamResult = () => {
                       menuPortalTarget={document.body}
                     />
                   )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+                </FormControl>
+                <FormControl sx={{ minWidth: 200 }} size="small">
                   <Select
                     options={sectionOptions}
                     value={sectionOptions.find((opt) => opt.value === selectedSection) || null}
@@ -605,31 +859,25 @@ const ExamResult = () => {
                     styles={selectStyles}
                     menuPortalTarget={document.body}
                   />
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleSearch}
-                    fullWidth
-                    sx={{ height: '40px' }}
-                  >
-                    Search
-                  </Button>
-                </Grid>
-              </Grid>
+                </FormControl>
+              </CriteriaContainer>
+              <SearchButton
+                variant="contained"
+                onClick={handleSearch}
+                aria-label="Search by Criteria"
+              >
+                Search Criteria
+              </SearchButton>
             </CardContent>
-          </Card>
+          </CriteriaCard>
         </Grid>
 
-        {/* Exam Result List */}
+        {/* Exam Result List Section */}
         <Grid item xs={12}>
-          <Card sx={{ p: { xs: 1, sm: 2 }, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <TableCard>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', mb: { xs: 2, sm: 0 } }}>
-                  Exam Result List
-                </Typography>
+                <SubHeading variant="h6">Exam Result List</SubHeading>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: { xs: 'center', sm: 'flex-end' } }}>
                   <CSVLink
                     data={csvData}
@@ -644,112 +892,115 @@ const ExamResult = () => {
                   <IconButton sx={{ color: '#666' }} onClick={handlePrint} title="Print">
                     <PrintIcon />
                   </IconButton>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    onClick={handleAdd}
-                    sx={{ borderRadius: '20px', textTransform: 'none' }}
-                  >
-                    + Add Result
-                  </Button>
                 </Box>
               </Box>
-              <TextField
-                fullWidth
-                label="Search exam results"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                variant="outlined"
-                size="small"
-                sx={{ mb: 2 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <TableContainer component={Paper} sx={{ boxShadow: 'none', overflowX: 'auto' }}>
+              <SearchContainer>
+                <TextField
+                  fullWidth
+                  label="Search exam results"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    'aria-label': 'Search exam results',
+                  }}
+                />
+                <SearchButton
+                  variant="contained"
+                  onClick={handleSearch}
+                  aria-label="Search Results"
+                >
+                  Search Results
+                </SearchButton>
+              </SearchContainer>
+              <StyledTableContainer component={Paper}>
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#333' }}>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }} onClick={() => handleSort('admissionNo')}>
+                    <TableRow sx={{ bgcolor: '#1a2526' }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('admissionNo')}>
                         Admission No {sortColumn === 'admissionNo' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }} onClick={() => handleSort('rollNo')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('rollNo')}>
                         Roll Number {sortColumn === 'rollNo' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 150 }} onClick={() => handleSort('studentName')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 150, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('studentName')}>
                         Student Name {sortColumn === 'studentName' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
                       {filteredExamResults[0]?.subjects.map((sub) => (
                         <React.Fragment key={sub.subjectName}>
-                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }}>
+                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
                             {sub.subjectName} (Marks)
                           </TableCell>
-                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100 }}>
+                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
                             {sub.subjectName} (Attendance)
                           </TableCell>
-                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100 }}>
+                          <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
                             {sub.subjectName} (Grade)
                           </TableCell>
                         </React.Fragment>
                       ))}
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }} onClick={() => handleSort('grandTotal')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('grandTotal')}>
                         Grand Total {sortColumn === 'grandTotal' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100 }} onClick={() => handleSort('percent')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('percent')}>
                         Percent (%) {sortColumn === 'percent' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 80 }} onClick={() => handleSort('gpa')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 80, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('gpa')}>
                         GPA {sortColumn === 'gpa' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
                         Overall Grade
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 80 }} onClick={() => handleSort('rank')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 80, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('rank')}>
                         Rank {sortColumn === 'rank' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100 }} onClick={() => handleSort('result')}>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 100, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }} onClick={() => handleSort('result')}>
                         Result {sortColumn === 'result' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </TableCell>
-                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120 }}>Action</TableCell>
+                      <TableCell sx={{ color: '#fff', fontWeight: 600, minWidth: 120, fontSize: { xs: '0.75rem', md: '0.875rem' }, p: { xs: 1, md: 2 } }}>
+                        Action
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {examLoading ? (
                       <TableRow>
-                        <TableCell colSpan={13 + (filteredExamResults[0]?.subjects.length || 0) * 3} sx={{ textAlign: 'center' }}>
-                          <CircularProgress size={24} />
+                        <TableCell colSpan={13 + (filteredExamResults[0]?.subjects.length || 0) * 3} sx={{ textAlign: 'center', color: '#1a2526' }}>
+                          Loading...
                         </TableCell>
                       </TableRow>
-                    ) : filteredExamResults.length === 0 ? (
+                    ) : currentPageData.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={13 + (filteredExamResults[0]?.subjects.length || 0) * 3} sx={{ textAlign: 'center', p: 4, color: '#666' }}>
                           No exam results found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredExamResults.map((result, idx) => (
-                        <TableRow key={result._id} sx={{ bgcolor: idx % 2 ? '#fff' : '#f9f9f9', '&:hover': { bgcolor: '#e0f7fa' } }}>
-                          <TableCell>{result.admissionNo}</TableCell>
-                          <TableCell>{result.rollNo}</TableCell>
-                          <TableCell>{result.studentName}</TableCell>
+                      currentPageData.map((result, idx) => (
+                        <StyledTableRow key={result._id}>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.admissionNo}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.rollNo}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.studentName}</TableCell>
                           {result.subjects.map((sub) => (
                             <React.Fragment key={sub.subjectName}>
-                              <TableCell>{`${sub.attendance === 'Absent' ? 0 : sub.marksObtained || 0}/100`}</TableCell>
-                              <TableCell>{sub.attendance || 'Present'}</TableCell>
-                              <TableCell>{sub.grade || 'N/A'}</TableCell>
+                              <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{`${sub.attendance === 'Absent' ? 0 : sub.marksObtained || 0}/100`}</TableCell>
+                              <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{sub.attendance || 'Present'}</TableCell>
+                              <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{sub.grade || 'N/A'}</TableCell>
                             </React.Fragment>
                           ))}
-                          <TableCell>{`${result.grandTotal || 0}/${result.subjects.length * 100}`}</TableCell>
-                          <TableCell>{(result.percent || 0).toFixed(2)}%</TableCell>
-                          <TableCell>{(result.gpa || 0).toFixed(2)}</TableCell>
-                          <TableCell>{result.overallGrade || 'N/A'}</TableCell>
-                          <TableCell>{result.rank || 0}</TableCell>
-                          <TableCell>{result.result || 'N/A'}</TableCell>
-                          <TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{`${result.grandTotal || 0}/${result.subjects.length * 100}`}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{(result.percent || 0).toFixed(2)}%</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{(result.gpa || 0).toFixed(2)}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.overallGrade || 'N/A'}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.rank || 0}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{result.result || 'N/A'}</TableCell>
+                          <TableCell sx={{ p: { xs: 1, md: 2 } }}>
                             <IconButton onClick={() => handleEdit(result)} sx={{ color: '#1976d2' }} title="Edit">
                               <EditIcon fontSize="small" />
                             </IconButton>
@@ -757,25 +1008,61 @@ const ExamResult = () => {
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </TableCell>
-                        </TableRow>
+                        </StyledTableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
-              </TableContainer>
-              <Typography sx={{ mt: 2, color: '#333' }}>
-                Records: {filteredExamResults.length} of {examResultsList.length}
-              </Typography>
+              </StyledTableContainer>
+              <PaginationContainer>
+                <Typography sx={{ mt: 2, color: '#1a2526', textAlign: 'center' }}>
+                  Showing {currentPageData.length} of {displayedResults.length} records
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: '#1a2526' }}>Items per page</Typography>
+                  <FormControl variant="outlined" size="small" sx={{ minWidth: 80 }}>
+                    <InputLabel id="items-per-page-label">Items</InputLabel>
+                    <MUISelect
+                      value={itemsPerPage}
+                      onChange={handleItemsPerPageChange}
+                      label="Items"
+                      labelId="items-per-page-label"
+                      aria-label="Items per page"
+                    >
+                      {[5, 10, 20, 30].map((num) => (
+                        <MenuItem key={num} value={num}>{num}</MenuItem>
+                      ))}
+                    </MUISelect>
+                  </FormControl>
+                </Box>
+                <ReactPaginate
+                  previousLabel={'←'}
+                  nextLabel={'→'}
+                  pageCount={pageCount}
+                  onPageChange={({ selected }) => {
+                    setCurrentPage(selected);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  containerClassName={'pagination'}
+                  activeClassName={'active'}
+                  pageClassName={'page'}
+                  pageLinkClassName={'page-link'}
+                  previousClassName={'page'}
+                  nextClassName={'page'}
+                  breakLabel={'...'}
+                />
+              </PaginationContainer>
             </CardContent>
-          </Card>
+          </TableCard>
         </Grid>
       </Grid>
 
+      {/* Add/Edit Exam Result Dialog */}
       <Dialog open={isPopupOpen} onClose={handleClosePopup} maxWidth="md" fullWidth sx={{ '& .MuiDialog-paper': { width: { xs: '90%', sm: '80%', md: '70%' } } }}>
         <DialogTitle>{editId ? 'Edit Exam Result' : 'Add Exam Result'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
+          <FormContainer>
+            <FormControl fullWidth size="small">
               {classLoading ? (
                 <CircularProgress size={24} />
               ) : fclassesList.length === 0 ? (
@@ -785,15 +1072,20 @@ const ExamResult = () => {
                   options={classOptions}
                   value={classOptions.find((opt) => opt.value === formData.classId) || null}
                   onChange={(newValue) => handleSelectChange('classId', newValue)}
+                  onKeyDown={(e: any) => handleKeyDown(e, sectionRef)}
                   placeholder="Select Class"
                   isClearable
                   isSearchable
                   styles={selectStyles}
                   menuPortalTarget={document.body}
+                  ref={classRef}
+                  isOpen={isClassSelectOpen}
+                  onMenuOpen={() => setIsClassSelectOpen(true)}
+                  onMenuClose={() => setIsClassSelectOpen(false)}
                 />
               )}
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            </FormControl>
+            <FormControl fullWidth size="small">
               {formSectionOptions.length === 0 && formData.classId ? (
                 <Typography color="error">No sections available for this class</Typography>
               ) : (
@@ -801,16 +1093,21 @@ const ExamResult = () => {
                   options={formSectionOptions}
                   value={formSectionOptions.find((opt) => opt.value === formData.section) || null}
                   onChange={(newValue) => handleSelectChange('section', newValue)}
+                  onKeyDown={(e: any) => handleKeyDown(e, admissionRef)}
                   placeholder="Select Section"
                   isClearable
                   isSearchable
                   isDisabled={!formData.classId}
                   styles={selectStyles}
                   menuPortalTarget={document.body}
+                  ref={sectionRef}
+                  isOpen={isSectionSelectOpen}
+                  onMenuOpen={() => setIsSectionSelectOpen(true)}
+                  onMenuClose={() => setIsSectionSelectOpen(false)}
                 />
               )}
-            </Grid>
-            <Grid item xs={12}>
+            </FormControl>
+            <FormControl fullWidth size="small">
               {admissionLoading ? (
                 <CircularProgress size={24} />
               ) : admissionOptions.length === 0 && formData.classId && formData.section ? (
@@ -820,195 +1117,282 @@ const ExamResult = () => {
                   options={admissionOptions}
                   value={admissionOptions.find((opt) => opt.value === formData.admissionNo) || null}
                   onChange={(newValue) => handleSelectChange('admissionNo', newValue)}
+                  onKeyDown={(e: any) => handleKeyDown(e, examGroupRef)}
                   placeholder="Select Admission No"
                   isClearable
                   isSearchable
                   isDisabled={!formData.classId || !formData.section}
                   styles={selectStyles}
                   menuPortalTarget={document.body}
+                  ref={admissionRef}
+                  isOpen={isAdmissionSelectOpen}
+                  onMenuOpen={() => setIsAdmissionSelectOpen(true)}
+                  onMenuClose={() => setIsAdmissionSelectOpen(false)}
                 />
               )}
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Roll Number"
-                name="rollNo"
-                value={formData.rollNo}
-                onChange={handleInputChange}
-                variant="outlined"
-                size="small"
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Student Name"
-                name="studentName"
-                value={formData.studentName}
-                onChange={handleInputChange}
-                variant="outlined"
-                size="small"
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Select
-                options={examGroups.map((group) => ({ value: group, label: group }))}
-                value={examGroups.find((group) => group === formData.examGroup) ? { value: formData.examGroup, label: formData.examGroup } : null}
-                onChange={(newValue) => handleSelectChange('examGroup', newValue)}
-                placeholder="Select Exam Group"
-                isClearable
-                isSearchable
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Select
-                options={examTypes.map((type) => ({ value: type, label: type }))}
-                value={examTypes.find((type) => type === formData.examType) ? { value: formData.examType, label: formData.examType } : null}
-                onChange={(newValue) => handleSelectChange('examType', newValue)}
-                placeholder="Select Exam Type"
-                isClearable
-                isSearchable
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Select
-                options={sessions.map((session) => ({ value: session, label: session }))}
-                value={sessions.find((session) => session === formData.session) ? { value: formData.session, label: formData.session } : null}
-                onChange={(newValue) => handleSelectChange('session', newValue)}
-                placeholder="Select Session"
-                isClearable
-                isSearchable
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                Subjects (Marks should be between 0 and 100)
-              </Typography>
-              {formData.subjects.map((subject, index) => (
-                <Grid container spacing={2} key={index} sx={{ mb: 2, alignItems: 'center' }}>
-                  <Grid item xs={12} sm={3}>
-                    <TextField
-                      fullWidth
-                      label="Subject Name"
-                      value={subject.subjectName}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(e, index, 'subjectName')}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <TextField
-                      fullWidth
-                      label="Marks Obtained (0-100)"
-                      type="number"
-                      value={subject.attendance === 'Absent' ? 0 : subject.marksObtained}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        const value = Number(e.target.value);
-                        if (value > 100 || value < 0) {
-                          setSnack({ open: true, message: 'Marks must be between 0 and 100', severity: 'warning' });
-                          return;
-                        }
-                        handleInputChange(e, index, 'marksObtained');
-                      }}
-                      variant="outlined"
-                      size="small"
-                      inputProps={{ min: 0, max: 100 }}
-                      error={Number(subject.marksObtained) > 100 || Number(subject.marksObtained) < 0}
-                      helperText={Number(subject.marksObtained) > 100 || Number(subject.marksObtained) < 0 ? 'Invalid marks' : ''}
-                      disabled={subject.attendance === 'Absent'}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <TextField
-                      fullWidth
-                      label="Subject Code"
-                      value={subject.subjectCode}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(e, index, 'subjectCode')}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <Select
-                      options={attendanceOptions}
-                      value={attendanceOptions.find((opt) => opt.value === subject.attendance) || null}
-                      onChange={(newValue) => handleSelectChange('attendance', newValue, index)}
-                      placeholder="Attendance"
-                      isClearable
-                      isSearchable
-                      styles={selectStyles}
-                      menuPortalTarget={document.body}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={2}>
-                    <TextField
-                      fullWidth
-                      label="Grade"
-                      value={subject.grade || 'N/A'}
-                      disabled
-                      variant="outlined"
-                      size="small"
-                    />
-                    {index > 0 && (
-                      <IconButton onClick={() => removeSubject(index)} color="error">
-                        <FaMinus />
-                      </IconButton>
-                    )}
-                    {index === formData.subjects.length - 1 && (
-                      <IconButton onClick={addSubject} color="success">
-                        <FaPlus />
-                      </IconButton>
-                    )}
-                  </Grid>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Roll Number"
+              name="rollNo"
+              value={formData.rollNo}
+              onChange={handleInputChange}
+              variant="outlined"
+              size="small"
+              disabled
+            />
+            <TextField
+              fullWidth
+              label="Student Name"
+              name="studentName"
+              value={formData.studentName}
+              onChange={handleInputChange}
+              variant="outlined"
+              size="small"
+              disabled
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel id="form-exam-group-label">Exam Group</InputLabel>
+              <MUISelect
+                name="examGroup"
+                value={formData.examGroup}
+                onChange={(e) => handleSelectChange('examGroup', { value: e.target.value })}
+                onKeyDown={(e) => handleKeyDown(e, examTypeRef)}
+                open={isExamGroupSelectOpen}
+                onOpen={() => setIsExamGroupSelectOpen(true)}
+                onClose={() => setIsExamGroupSelectOpen(false)}
+                label="Exam Group"
+                labelId="form-exam-group-label"
+                required
+                aria-label="Exam Group"
+                inputRef={examGroupRef}
+              >
+                <MenuItem value="">Select Exam Group</MenuItem>
+                {examGroups.map((group) => (
+                  <MenuItem key={group} value={group}>{group}</MenuItem>
+                ))}
+              </MUISelect>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel id="form-exam-type-label">Exam Type</InputLabel>
+              <MUISelect
+                name="examType"
+                value={formData.examType}
+                onChange={(e) => handleSelectChange('examType', { value: e.target.value })}
+                onKeyDown={(e) => handleKeyDown(e, sessionRef)}
+                open={isExamTypeSelectOpen}
+                onOpen={() => setIsExamTypeSelectOpen(true)}
+                onClose={() => setIsExamTypeSelectOpen(false)}
+                label="Exam Type"
+                labelId="form-exam-type-label"
+                required
+                aria-label="Exam Type"
+                inputRef={examTypeRef}
+              >
+                <MenuItem value="">Select Exam Type</MenuItem>
+                {examTypes.map((type) => (
+                  <MenuItem key={type} value={type}>{type}</MenuItem>
+                ))}
+              </MUISelect>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel id="form-session-label">Session</InputLabel>
+              <MUISelect
+                name="session"
+                value={formData.session}
+                onChange={(e) => handleSelectChange('session', { value: e.target.value })}
+                onKeyDown={(e) => handleKeyDown(e, subjectRefs.current[0][0] ? subjectRefs.current[0][0] : saveButtonRef)}
+                open={isSessionSelectOpen}
+                onOpen={() => setIsSessionSelectOpen(true)}
+                onClose={() => setIsSessionSelectOpen(false)}
+                label="Session"
+                labelId="form-session-label"
+                required
+                aria-label="Session"
+                inputRef={sessionRef}
+              >
+                <MenuItem value="">Select Session</MenuItem>
+                {sessions.map((session) => (
+                  <MenuItem key={session} value={session}>{session}</MenuItem>
+                ))}
+              </MUISelect>
+            </FormControl>
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              Subjects (Marks should be between 0 and 100)
+            </Typography>
+            {formData.subjects.map((subject, index) => (
+              <Grid container spacing={2} key={index} sx={{ mb: 2, alignItems: 'center' }}>
+                <Grid item xs={12} sm={3}>
+                  <TextField
+                    fullWidth
+                    label="Subject Name"
+                    value={subject.subjectName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(e, index, 'subjectName')}
+                    onKeyDown={(e) => handleKeyDown(e, subjectRefs.current[index][1], index, 'subjectName')}
+                    variant="outlined"
+                    size="small"
+                    inputRef={(el) => (subjectRefs.current[index][0] = el)}
+                  />
                 </Grid>
-              ))}
-            </Grid>
-            <Grid item xs={12}>
-              <Typography>
-                Grand Total: {calculateGPAandGrade(formData.subjects).grandTotal}/{formData.subjects.length * 100}
-              </Typography>
-              <Typography>
-                Percentage: {calculateGPAandGrade(formData.subjects).percent}%
-              </Typography>
-              <Typography>
-                GPA: {(calculateGPAandGrade(formData.subjects).gpa).toFixed(2)}
-              </Typography>
-              <Typography>
-                Overall Grade: {calculateGPAandGrade(formData.subjects).overallGrade}
-              </Typography>
-            </Grid>
-          </Grid>
+                <Grid item xs={12} sm={2}>
+                  <TextField
+                    fullWidth
+                    label="Marks Obtained (0-100)"
+                    type="number"
+                    value={subject.attendance === 'Absent' ? 0 : subject.marksObtained}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      const value = Number(e.target.value);
+                      if (value > 100 || value < 0) {
+                        setSnack({ open: true, message: 'Marks must be between 0 and 100', severity: 'warning' });
+                        return;
+                      }
+                      handleInputChange(e, index, 'marksObtained');
+                    }}
+                    onKeyDown={(e) => handleKeyDown(e, subjectRefs.current[index][2], index, 'marksObtained')}
+                    variant="outlined"
+                    size="small"
+                    inputProps={{ min: 0, max: 100 }}
+                    error={Number(subject.marksObtained) > 100 || Number(subject.marksObtained) < 0}
+                    helperText={Number(subject.marksObtained) > 100 || Number(subject.marksObtained) < 0 ? 'Invalid marks' : ''}
+                    disabled={subject.attendance === 'Absent'}
+                    inputRef={(el) => (subjectRefs.current[index][1] = el)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={2}>
+                  <TextField
+                    fullWidth
+                    label="Subject Code"
+                    value={subject.subjectCode}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(e, index, 'subjectCode')}
+                    onKeyDown={(e) => handleKeyDown(e, subjectRefs.current[index][3], index, 'subjectCode')}
+                    variant="outlined"
+                    size="small"
+                    inputRef={(el) => (subjectRefs.current[index][2] = el)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={2}>
+                  <Select
+                    options={attendanceOptions}
+                    value={attendanceOptions.find((opt) => opt.value === subject.attendance) || null}
+                    onChange={(newValue) => handleSelectChange('attendance', newValue, index)}
+                    onKeyDown={(e: any) => handleKeyDown(e, null, index, 'attendance')}
+                    placeholder="Attendance"
+                    isClearable
+                    isSearchable
+                    styles={selectStyles}
+                    menuPortalTarget={document.body}
+                    ref={(el) => (subjectRefs.current[index][3] = el)}
+                    isOpen={subjectAttendanceOpen[index]}
+                    onMenuOpen={() => updateSubjectAttendanceOpen(index, true)}
+                    onMenuClose={() => updateSubjectAttendanceOpen(index, false)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField
+                    fullWidth
+                    label="Grade"
+                    value={subject.grade || 'N/A'}
+                    disabled
+                    variant="outlined"
+                    size="small"
+                  />
+                  {index > 0 && (
+                    <IconButton onClick={() => removeSubject(index)} color="error">
+                      <FaMinus />
+                    </IconButton>
+                  )}
+                  {index === formData.subjects.length - 1 && (
+                    <IconButton onClick={addSubject} color="success">
+                      <FaPlus />
+                    </IconButton>
+                  )}
+                </Grid>
+              </Grid>
+            ))}
+            <Typography>
+              Grand Total: {calculateGPAandGrade(formData.subjects).grandTotal}/{formData.subjects.length * 100}
+            </Typography>
+            <Typography>
+              Percentage: {calculateGPAandGrade(formData.subjects).percent}%
+            </Typography>
+            <Typography>
+              GPA: {(calculateGPAandGrade(formData.subjects).gpa).toFixed(2)}
+            </Typography>
+            <Typography>
+              Overall Grade: {calculateGPAandGrade(formData.subjects).overallGrade}
+            </Typography>
+          </FormContainer>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClosePopup} color="error">
+          <CancelButton onClick={handleClosePopup} aria-label="Cancel">
             Cancel
-          </Button>
-          <Button onClick={handleSave} color="success">
+          </CancelButton>
+          <AddButton onClick={handleSave} aria-label={editId ? 'Update Exam Result' : 'Save Exam Result'} ref={saveButtonRef}>
             {editId ? 'Update' : 'Save'}
-          </Button>
+          </AddButton>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={() => setSnack({ ...snack, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <style jsx global>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: 20px 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #1a2526;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: 14px;
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background: #4caf50;
+          color: white;
+          border-color: #4caf50;
+          font-weight: bold;
+        }
+        @media (max-width: 600px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+    </Container>
   );
 };
 

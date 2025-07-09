@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Attractive Insert Page</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      width: 90%;
+      max-width: 1200px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-section, .list-section {
+      flex: 1;
+      padding: 40px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-section {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .list-section {
+      background: rgba(255, 255, 255, 0.15);
+      overflow-y: auto;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #fff;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      box-shadow: 0 0 8px #00c6ff;
+    }
+
+    button {
+      padding: 14px 25px;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      color: #fff;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 16px;
+      letter-spacing: 1px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .entry {
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 20px 25px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    .entry p {
+      margin: 6px 0;
+      color: #fff;
+    }
+
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Searchable Dropdown */
+    .searchable-dropdown {
+      position: relative;
+    }
+
+    .dropdown-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 5;
+      background: #fff;
+      border-radius: 0 0 8px 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .dropdown-list div {
+      padding: 10px;
+      cursor: pointer;
+      color: #333;
+    }
+
+    .dropdown-list div:hover {
+      background: #e0f7fa;
+    }
+
+    /* Scroll styling for list */
+    .list-section::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .list-section::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.5);
+      border-radius: 3px;
+    }
+
+    .list-section::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        height: auto;
+        align-items: flex-start;
+        padding: 40px 0;
+      }
+      .container {
+        flex-direction: column;
+      }
+      .form-section, .list-section {
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Form Section -->
+    <div class="form-section">
+      <h2>Insert Details</h2>
+      <form id="insertForm">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="name" required />
+        </div>
+
+        <div class="form-group">
+          <label>Roll No</label>
+          <div class="searchable-dropdown">
+            <input type="text" id="rollno" placeholder="Search Roll No" autocomplete="off" required />
+            <div id="dropdownList" class="dropdown-list"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="address" required />
+        </div>
+
+        <div class="form-group">
+          <label>Aadhar No</label>
+          <input type="text" id="aadhar" required />
+        </div>
+
+        <div class="form-group">
+          <label>PAN No</label>
+          <input type="text" id="pan" required />
+        </div>
+
+        <button type="submit">Done ✅</button>
+      </form>
+    </div>
+
+    <!-- List Section -->
+    <div class="list-section">
+      <h2>Inserted List</h2>
+      <div id="listContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('insertForm');
+    const listContainer = document.getElementById('listContainer');
+    const rollnoInput = document.getElementById('rollno');
+    const dropdownList = document.getElementById('dropdownList');
+
+    const rollNumbers = ['101', '102', '103', '201', '202', '203', '301', '302', '401', '501'];
+
+    rollnoInput.addEventListener('input', () => {
+      const value = rollnoInput.value.toLowerCase();
+      dropdownList.innerHTML = '';
+      const filtered = rollNumbers.filter(num => num.includes(value));
+      if (filtered.length > 0 && value) {
+        filtered.forEach(num => {
+          const div = document.createElement('div');
+          div.textContent = num;
+          div.addEventListener('click', () => {
+            rollnoInput.value = num;
+            dropdownList.style.display = 'none';
+          });
+          dropdownList.appendChild(div);
+        });
+        dropdownList.style.display = 'block';
+      } else {
+        dropdownList.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!rollnoInput.contains(e.target) && !dropdownList.contains(e.target)) {
+        dropdownList.style.display = 'none';
+      }
+    });
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const rollno = document.getElementById('rollno').value;
+      const address = document.getElementById('address').value;
+      const aadhar = document.getElementById('aadhar').value;
+      const pan = document.getElementById('pan').value;
+
+      const entry = document.createElement('div');
+      entry.className = 'entry';
+      entry.innerHTML = `
+        <p><strong>👤 Name:</strong> ${name}</p>
+        <p><strong>🔢 Roll No:</strong> ${rollno}</p>
+        <p><strong>🏠 Address:</strong> ${address}</p>
+        <p><strong>🆔 Aadhar No:</strong> ${aadhar}</p>
+        <p><strong>💳 PAN No:</strong> ${pan}</p>
+      `;
+      listContainer.prepend(entry);
+      form.reset();
+    });
+  </script>
+
+</body>
+</html>

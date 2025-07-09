@@ -30,6 +30,11 @@ import {
 } from '@mui/material';
 import { Edit, Delete, FileCopy, Print, PictureAsPdf, Search } from '@mui/icons-material';
 
+// Validate MongoDB ObjectId format (24-character hexadecimal string)
+const isValidObjectId = (id: string | undefined): boolean => {
+  return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+};
+
 const HouseStudent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { houses = [], newHouse, search = '', loading, error } = useSelector(
@@ -39,12 +44,19 @@ const HouseStudent: React.FC = () => {
   const adminID = currentUser?._id;
 
   useEffect(() => {
-    if (adminID) {
-      dispatch(fetchAllHouses(adminID));
-    } else {
+    console.log('Current user:', currentUser); // Debug log
+    if (!adminID) {
       toast.error('Please log in to manage houses', { position: 'top-right', autoClose: 3000 });
+      return;
     }
-
+    if (!isValidObjectId(adminID)) {
+      toast.error('Invalid admin ID format. Please log in again.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+    dispatch(fetchAllHouses(adminID));
     return () => {
       dispatch(resetHouse());
     };
@@ -57,6 +69,20 @@ const HouseStudent: React.FC = () => {
   }, [error]);
 
   const addHouse = () => {
+    if (!adminID) {
+      toast.error('Admin ID is missing. Please log in.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+    if (!isValidObjectId(adminID)) {
+      toast.error('Invalid admin ID format. Please log in again.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
     if (!newHouse.name?.trim()) {
       toast.warn('House name cannot be empty!', { position: 'top-right', autoClose: 3000 });
       return;
@@ -76,17 +102,15 @@ const HouseStudent: React.FC = () => {
       class: newHouse.class || '',
     };
 
-    dispatch(createHouse({ adminID, house: housePayload }))
-      .then((result) => {
-        // Use unwrap to get the fulfilled or rejected value
-        return result.unwrap();
-      })
+    dispatch(createHouse({ adminID, housePayload }))
+      .unwrap()
       .then(() => {
         toast.success('House added successfully', { position: 'top-right', autoClose: 3000 });
         dispatch(setNewHouse({ name: '', description: '', class: '' }));
       })
       .catch((err) => {
-        toast.error(`Failed to add house: ${err.message || err}`, {
+        console.error('Error in addHouse:', err);
+        toast.error(`Failed to add house: ${err}`, {
           position: 'top-right',
           autoClose: 3000,
         });
@@ -94,16 +118,22 @@ const HouseStudent: React.FC = () => {
   };
 
   const handleDeleteHouse = (houseId: string) => {
+    if (!isValidObjectId(adminID)) {
+      toast.error('Invalid admin ID format. Please log in again.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this house?')) {
       dispatch(deleteHouse({ adminID, houseId }))
-        .then((result) => {
-          return result.unwrap();
-        })
+        .unwrap()
         .then(() => {
           toast.success('House deleted successfully', { position: 'top-right', autoClose: 3000 });
         })
         .catch((err) => {
-          toast.error(`Failed to delete house: ${err.message || err}`, {
+          console.error('Error in handleDeleteHouse:', err);
+          toast.error(`Failed to delete house: ${err}`, {
             position: 'top-right',
             autoClose: 3000,
           });
@@ -266,7 +296,7 @@ const styles = {
     gap: '20px',
     padding: '20px',
     justifyContent: 'center',
-    flexWrap: 'wrap' as const,
+    flexWrap: 'wrap' as 'wrap',
   },
   card: {
     flex: 1,
@@ -279,7 +309,7 @@ const styles = {
   },
   title: {
     fontWeight: 'bold',
-    textAlign: 'center' as const,
+    textAlign: 'center' as 'center',
     color: '#444',
     marginBottom: '10px',
   },

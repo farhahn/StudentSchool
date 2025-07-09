@@ -5,10 +5,129 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, AttachFile as AttachFileIcon } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
+import styled from 'styled-components';
+import ReactPaginate from 'react-paginate';
 import {
   getAllExpenses, createExpense, updateExpense, deleteExpense, clearExpenseError
 } from '../../../redux/expenseRelated/expenseHandle';
 import { getAllExpenseHeads } from '../../../redux/expenseRelated/expenseHeadHandle';
+
+// Styled Components
+const Container = styled(Box)`
+  padding: 16px;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  @media (min-width: 960px) {
+    padding: 32px;
+  }
+`;
+
+const Heading = styled(Typography)`
+  text-align: center;
+  font-weight: 700;
+  color: #1a2526;
+  margin-bottom: 32px;
+  font-size: 1.5rem;
+  @media (min-width: 960px) {
+    font-size: 2.125rem;
+  }
+`;
+
+const StyledCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+`;
+
+const SubHeading = styled(Typography)`
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #1a2526;
+`;
+
+const AddButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #2e7d32;
+  color: white;
+  &:hover {
+    background-color: #1b5e20;
+  }
+`;
+
+const StyledTableContainer = styled(TableContainer)`
+  box-shadow: none;
+  background-color: #fff;
+`;
+
+const StyledTableRow = styled(TableRow)`
+  &:nth-of-type(odd) {
+    background-color: #f9f9f9;
+  }
+  &:hover {
+    background-color: #e0f7fa;
+  }
+`;
+
+const ModalContainer = styled(Box)`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 16px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  z-index: 1300;
+  @media (min-width: 600px) {
+    width: 500px;
+    padding: 32px;
+  }
+`;
+
+const Form = styled('form')`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const FileUploadContainer = styled(Box)`
+  border: 2px dashed #1976d2;
+  padding: 16px;
+  text-align: center;
+  border-radius: 4px;
+`;
+
+const SaveButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #2e7d32;
+  color: white;
+  &:hover {
+    background-color: #1b5e20;
+  }
+`;
+
+const CancelButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #d32f2f;
+  color: white;
+  &:hover {
+    background-color: #b71c1c;
+  }
+`;
+
+const PaginationContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  gap: 10px;
+`;
 
 const AddExpenses = () => {
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +142,8 @@ const AddExpenses = () => {
     attachedFile: null,
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const dispatch = useDispatch();
@@ -36,7 +157,7 @@ const AddExpenses = () => {
   useEffect(() => {
     if (adminID) {
       dispatch(getAllExpenses(adminID));
-      dispatch(getAllExpenseHeads(adminID)); // Fetch expense heads for dropdown
+      dispatch(getAllExpenseHeads(adminID));
     } else {
       setSnack({ open: true, message: 'Please log in to view expenses', severity: 'error' });
     }
@@ -108,8 +229,8 @@ const AddExpenses = () => {
   const handleEdit = (expense) => {
     setFormData({
       ...expense,
-      date: new Date(expense.date).toISOString().split('T')[0], // Format date for input
-      attachedFile: expense.attachedFile || null, // Keep existing file path or null
+      date: new Date(expense.date).toISOString().split('T')[0],
+      attachedFile: expense.attachedFile || null,
     });
     setEditingId(expense._id);
     setShowForm(true);
@@ -137,29 +258,34 @@ const AddExpenses = () => {
     )
   );
 
-  return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
-      <Typography
-        variant="h4"
-        sx={{
-          textAlign: 'center',
-          fontWeight: 700,
-          color: '#1a2526',
-          mb: 4,
-          fontSize: { xs: '1.5rem', md: '2.125rem' },
-        }}
-      >
-        Expense Management
-      </Typography>
+  const pageCount = Math.ceil(filteredExpenses.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredExpenses.slice(offset, offset + itemsPerPage);
 
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
+
+  return (
+    <Container>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnack}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnack} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+      <Heading variant="h4">Expense Management</Heading>
       <Grid container spacing={3}>
         {/* Search Section */}
         <Grid item xs={12}>
-          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <StyledCard>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2526' }}>
-                Search Expenses
-              </Typography>
+              <SubHeading variant="h6">Search Expenses</SubHeading>
               <TextField
                 fullWidth
                 label="Search"
@@ -167,29 +293,27 @@ const AddExpenses = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 variant="outlined"
                 size="small"
+                inputProps={{ 'aria-label': 'Search Expenses' }}
               />
             </CardContent>
-          </Card>
+          </StyledCard>
         </Grid>
 
         {/* Table and Add Button */}
         <Grid item xs={12}>
-          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <StyledCard>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526' }}>
-                  Expense List
-                </Typography>
-                <Button
+                <SubHeading variant="h6">Expense List</SubHeading>
+                <AddButton
                   variant="contained"
-                  color="success"
                   onClick={() => setShowForm(true)}
-                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  aria-label="Add Expense"
                 >
                   + Add Expense
-                </Button>
+                </AddButton>
               </Box>
-              <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
+              <StyledTableContainer component={Paper}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#1a2526' }}>
@@ -211,25 +335,19 @@ const AddExpenses = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ textAlign: 'center' }}>
+                        <TableCell colSpan={7} sx={{ textAlign: 'center', color: '#1a2526' }}>
                           Loading...
                         </TableCell>
                       </TableRow>
-                    ) : filteredExpenses.length === 0 ? (
+                    ) : currentPageData.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} sx={{ textAlign: 'center' }}>
+                        <TableCell colSpan={7} sx={{ textAlign: 'center', color: '#999' }}>
                           No expenses found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredExpenses.map((expense, idx) => (
-                        <TableRow
-                          key={expense._id}
-                          sx={{
-                            bgcolor: idx % 2 ? '#fff' : '#f9f9f9',
-                            '&:hover': { bgcolor: '#e0f7fa' },
-                          }}
-                        >
+                      currentPageData.map((expense, idx) => (
+                        <StyledTableRow key={expense._id}>
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{expense.name}</TableCell>
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{expense.description}</TableCell>
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{expense.invoiceNumber}</TableCell>
@@ -239,57 +357,77 @@ const AddExpenses = () => {
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{expense.expenseHead}</TableCell>
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>₹{expense.amount.toFixed(2)}</TableCell>
                           <TableCell sx={{ p: { xs: 1, md: 2 } }}>
-                            <IconButton onClick={() => handleEdit(expense)} sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}>
+                            <IconButton onClick={() => handleEdit(expense)} aria-label="Edit Expense" sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}>
                               <EditIcon fontSize="small" />
                             </IconButton>
-                            <IconButton onClick={() => handleDelete(expense._id)} sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}>
+                            <IconButton onClick={() => handleDelete(expense._id)} aria-label="Delete Expense" sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </TableCell>
-                        </TableRow>
+                        </StyledTableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
-              </TableContainer>
-              <Typography sx={{ mt: 2, color: '#1a2526' }}>
-                Records: {filteredExpenses.length}
-              </Typography>
+              </StyledTableContainer>
+              <PaginationContainer>
+                <Typography sx={{ mt: 2, color: '#1a2526', textAlign: 'center' }}>
+                  Showing {currentPageData.length} of {filteredExpenses.length} records
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: '#1a2526' }}>Items per page</Typography>
+                  <FormControl variant="outlined" size="small">
+                    <Select
+                      value={itemsPerPage}
+                      onChange={handleItemsPerPageChange}
+                      aria-label="Items per page"
+                    >
+                      {[5, 10, 20, 30].map((num) => (
+                        <MenuItem key={num} value={num}>
+                          {num}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+                <ReactPaginate
+                  previousLabel={'←'}
+                  nextLabel={'→'}
+                  pageCount={pageCount}
+                  onPageChange={({ selected }) => {
+                    setCurrentPage(selected);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  containerClassName={'pagination'}
+                  activeClassName={'active'}
+                  pageClassName={'page'}
+                  pageLinkClassName={'page-link'}
+                  previousClassName={'page'}
+                  nextClassName={'page'}
+                  breakLabel={'...'}
+                />
+              </PaginationContainer>
             </CardContent>
-          </Card>
+          </StyledCard>
         </Grid>
       </Grid>
 
       {/* Form Modal */}
       {showForm && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            bgcolor: 'white',
-            p: { xs: 2, md: 4 },
-            width: { xs: '90%', sm: 500 },
-            maxWidth: 600,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-            borderRadius: 2,
-            zIndex: 1300,
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2526' }}>
-            {editingId ? 'Edit Expense' : 'Add Expense'}
-          </Typography>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <ModalContainer>
+          <SubHeading variant="h6">{editingId ? 'Edit Expense' : 'Add Expense'}</SubHeading>
+          <Form onSubmit={handleSubmit}>
             <FormControl fullWidth>
-              <InputLabel>Expense Head</InputLabel>
+              <InputLabel id="expense-head-label">Expense Head</InputLabel>
               <Select
                 name="expenseHead"
                 value={formData.expenseHead}
                 onChange={handleChange}
                 required
                 label="Expense Head"
+                labelId="expense-head-label"
                 size="small"
+                aria-label="Expense Head"
               >
                 <MenuItem value="">Select</MenuItem>
                 {expenseHeadsList
@@ -308,6 +446,7 @@ const AddExpenses = () => {
               fullWidth
               variant="outlined"
               size="small"
+              inputProps={{ 'aria-label': 'Expense Name' }}
             />
             <TextField
               label="Invoice Number"
@@ -317,6 +456,7 @@ const AddExpenses = () => {
               fullWidth
               variant="outlined"
               size="small"
+              inputProps={{ 'aria-label': 'Invoice Number' }}
             />
             <TextField
               label="Date"
@@ -329,6 +469,7 @@ const AddExpenses = () => {
               InputLabelProps={{ shrink: true }}
               variant="outlined"
               size="small"
+              inputProps={{ 'aria-label': 'Expense Date' }}
             />
             <TextField
               label="Amount (₹)"
@@ -340,6 +481,7 @@ const AddExpenses = () => {
               fullWidth
               variant="outlined"
               size="small"
+              inputProps={{ 'aria-label': 'Amount', step: '0.01', min: '0' }}
             />
             <TextField
               label="Description"
@@ -351,52 +493,100 @@ const AddExpenses = () => {
               fullWidth
               variant="outlined"
               size="small"
+              inputProps={{ 'aria-label': 'Description' }}
             />
-            <Box sx={{ border: '2px dashed #1976d2', p: 2, textAlign: 'center', borderRadius: 1 }}>
+            <FileUploadContainer>
               <input
                 type="file"
                 id="fileUpload"
                 style={{ display: 'none' }}
                 onChange={handleFileUpload}
+                aria-label="Upload File"
               />
               <label htmlFor="fileUpload" style={{ cursor: 'pointer' }}>
                 <AttachFileIcon /> {formData.attachedFile?.name || formData.attachedFile || 'Drag and drop a file here or click'}
               </label>
-            </Box>
+            </FileUploadContainer>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
-              <Button
+              <SaveButton
                 type="submit"
                 variant="contained"
-                color="success"
-                sx={{ borderRadius: '20px', textTransform: 'none' }}
+                aria-label={editingId ? 'Save Edited Expense' : 'Save New Expense'}
               >
                 Save
-              </Button>
-              <Button
+              </SaveButton>
+              <CancelButton
                 variant="contained"
-                color="error"
                 onClick={() => setShowForm(false)}
-                sx={{ borderRadius: '20px', textTransform: 'none' }}
+                aria-label="Cancel"
               >
                 Cancel
-              </Button>
+              </CancelButton>
             </Box>
-          </form>
-        </Box>
+          </Form>
+        </ModalContainer>
       )}
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={handleCloseSnack}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnack} severity={snack.severity} sx={{ width: '100%' }}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <style jsx global>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: 20px 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #1a2526;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: 14px;
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background: #4caf50;
+          color: white;
+          border-color: #4caf50;
+          font-weight: bold;
+        }
+        @media (max-width: 600px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+    </Container>
   );
 };
 

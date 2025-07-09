@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -6,6 +7,7 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
+import ReactPaginate from 'react-paginate';
 import {
   getAllPostalReceives, createPostalReceive, updatePostalReceive, deletePostalReceive, clearPostalReceiveError
 } from '../../../redux/FrontOffice/Enquiry/postalReceiveHandle';
@@ -26,6 +28,8 @@ const PostalReceive: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('newer');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const dispatch = useDispatch();
   const postalReceiveState = useSelector((state: any) => {
@@ -107,6 +111,7 @@ const PostalReceive: React.FC = () => {
       document: null,
     });
     setShowForm(false);
+    setCurrentPage(0); // Reset to first page on form submission
   };
 
   const handleEdit = (receive: any) => {
@@ -143,6 +148,11 @@ const PostalReceive: React.FC = () => {
 
   const handleCloseSnack = () => setSnack({ ...snack, open: false });
 
+  const handleItemsPerPageChange = (e: React.ChangeEvent<{ value: unknown }>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
+
   const filteredList = receivesList
     ? receivesList
         .filter((item: any) => item.fromTitle?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -153,8 +163,16 @@ const PostalReceive: React.FC = () => {
         )
     : [];
 
+  const pageCount = Math.ceil(filteredList.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = filteredList.slice(offset, offset + itemsPerPage);
+
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
+    <Box sx={{
+      p: { xs: 2, md: 4 },
+      bgcolor: '#f4f6f8',
+      minHeight: '100vh',
+    }}>
       <Typography
         variant="h4"
         sx={{
@@ -176,7 +194,7 @@ const PostalReceive: React.FC = () => {
                 Search Receives
               </Typography>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={6} md={8}>
+                <Grid item xs={12} sm={6} md={5}>
                   <TextField
                     fullWidth
                     label="Search by From Title"
@@ -184,19 +202,38 @@ const PostalReceive: React.FC = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     variant="outlined"
                     size="small"
+                    InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+                    InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                   <FormControl fullWidth>
-                    <InputLabel>Sort by</InputLabel>
+                    <InputLabel sx={{ fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>Sort by</InputLabel>
                     <Select
                       value={sortOrder}
                       onChange={(e) => setSortOrder(e.target.value as string)}
                       label="Sort by"
                       size="small"
+                      sx={{ fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}
                     >
                       <MenuItem value="newer">Newer First</MenuItem>
                       <MenuItem value="older">Older First</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>Items per page</InputLabel>
+                    <Select
+                      value={itemsPerPage}
+                      onChange={handleItemsPerPageChange}
+                      label="Items per page"
+                      size="small"
+                      sx={{ fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}
+                    >
+                      {[5, 10, 20, 30].map((n) => (
+                        <MenuItem key={n} value={n}>{n}</MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -216,13 +253,13 @@ const PostalReceive: React.FC = () => {
                   variant="contained"
                   color="success"
                   onClick={() => setShowForm(true)}
-                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  sx={{ borderRadius: '20px', textTransform: 'none', minWidth: '44px', minHeight: '44px', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}
                 >
                   + Add Receive
                 </Button>
               </Box>
-              <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
-                <Table>
+              <TableContainer component={Paper} sx={{ boxShadow: 'none', overflowX: 'auto' }}>
+                <Table sx={{ minWidth: 600 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#1a2526' }}>
                       {['From Title', 'Reference No', 'To Title', 'Date', 'Actions'].map((header) => (
@@ -243,18 +280,18 @@ const PostalReceive: React.FC = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={5} sx={{ textAlign: 'center' }}>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>
                           Loading...
                         </TableCell>
                       </TableRow>
-                    ) : filteredList.length === 0 ? (
+                    ) : currentPageData.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} sx={{ textAlign: 'center' }}>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>
                           No receives found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredList.map((item: any, idx: number) => (
+                      currentPageData.map((item: any, idx: number) => (
                         <TableRow
                           key={item._id}
                           sx={{
@@ -275,13 +312,13 @@ const PostalReceive: React.FC = () => {
                             {new Date(item.date).toLocaleDateString()}
                           </TableCell>
                           <TableCell sx={{ p: { xs: 1, md: 2 } }}>
-                            <IconButton onClick={() => handleEdit(item)} sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}>
+                            <IconButton onClick={() => handleEdit(item)} sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 }, minWidth: '44px', minHeight: '44px' }}>
                               <EditIcon fontSize="small" />
                             </IconButton>
-                            <IconButton onClick={() => handleView(item)} sx={{ color: '#28a745', p: { xs: 0.5, md: 1 } }}>
+                            <IconButton onClick={() => handleView(item)} sx={{ color: '#28a745', p: { xs: 0.5, md: 1 }, minWidth: '44px', minHeight: '44px' }}>
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
-                            <IconButton onClick={() => handleDelete(item._id)} sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}>
+                            <IconButton onClick={() => handleDelete(item._id)} sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 }, minWidth: '44px', minHeight: '44px' }}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </TableCell>
@@ -291,9 +328,27 @@ const PostalReceive: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Typography sx={{ mt: 2, color: '#1a2526' }}>
-                Records: {filteredList.length}
-              </Typography>
+              <Box sx={styles.paginationContainer}>
+                <Typography sx={styles.recordCount}>
+                  Records: {currentPageData.length} of {filteredList.length}
+                </Typography>
+                <ReactPaginate
+                  previousLabel={'←'}
+                  nextLabel={'→'}
+                  pageCount={pageCount}
+                  onPageChange={({ selected }) => {
+                    setCurrentPage(selected);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  containerClassName={'pagination'}
+                  activeClassName={'active'}
+                  pageClassName={'page'}
+                  pageLinkClassName={'page-link'}
+                  previousClassName={'page'}
+                  nextClassName={'page'}
+                  breakLabel={'...'}
+                />
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -313,6 +368,8 @@ const PostalReceive: React.FC = () => {
             boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
             borderRadius: 2,
             zIndex: 1300,
+            maxHeight: '90vh',
+            overflowY: 'auto',
           }}
         >
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#1a2526' }}>
@@ -328,6 +385,8 @@ const PostalReceive: React.FC = () => {
               fullWidth
               variant="outlined"
               size="small"
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+              InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="Reference No"
@@ -337,6 +396,8 @@ const PostalReceive: React.FC = () => {
               fullWidth
               variant="outlined"
               size="small"
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+              InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="Address"
@@ -348,6 +409,8 @@ const PostalReceive: React.FC = () => {
               size="small"
               multiline
               rows={2}
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+              InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="Note"
@@ -359,6 +422,8 @@ const PostalReceive: React.FC = () => {
               size="small"
               multiline
               rows={2}
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+              InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="To Title"
@@ -368,6 +433,8 @@ const PostalReceive: React.FC = () => {
               fullWidth
               variant="outlined"
               size="small"
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
+              InputLabelProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="Date"
@@ -377,27 +444,29 @@ const PostalReceive: React.FC = () => {
               onChange={handleChange}
               required
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              InputLabelProps={{ shrink: true, style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
               variant="outlined"
               size="small"
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <TextField
               label="Document"
               type="file"
               name="document"
               onChange={handleChange}
-              InputLabelProps={{ shrink: true }}
+              InputLabelProps={{ shrink: true, style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
               inputProps={{ accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' }}
               fullWidth
               variant="outlined"
               size="small"
+              InputProps={{ style: { fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' } }}
             />
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
               <Button
                 type="submit"
                 variant="contained"
                 color="success"
-                sx={{ borderRadius: '20px', textTransform: 'none' }}
+                sx={{ borderRadius: '20px', textTransform: 'none', minWidth: '44px', minHeight: '44px', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}
               >
                 Save
               </Button>
@@ -405,7 +474,7 @@ const PostalReceive: React.FC = () => {
                 variant="contained"
                 color="error"
                 onClick={() => setShowForm(false)}
-                sx={{ borderRadius: '20px', textTransform: 'none' }}
+                sx={{ borderRadius: '20px', textTransform: 'none', minWidth: '44px', minHeight: '44px', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}
               >
                 Cancel
               </Button>
@@ -418,7 +487,7 @@ const PostalReceive: React.FC = () => {
         <DialogTitle>Postal Receive Details</DialogTitle>
         <DialogContent>
           {viewItem && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>
               <Typography>
                 <strong>From Title:</strong> {viewItem.fromTitle}
               </Typography>
@@ -451,7 +520,7 @@ const PostalReceive: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewItem(null)} color="primary">
+          <Button onClick={() => setViewItem(null)} color="primary" sx={{ fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>
             Close
           </Button>
         </DialogActions>
@@ -463,12 +532,89 @@ const PostalReceive: React.FC = () => {
         onClose={handleCloseSnack}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnack} severity={snack.severity} sx={{ width: '100%' }}>
+        <Alert onClose={handleCloseSnack} severity={snack.severity} sx={{ width: '100%', fontSize: 'clamp(0.8rem, 3vw, 0.9rem)' }}>
           {snack.message}
         </Alert>
       </Snackbar>
+
+      <style jsx>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: 1rem 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #333;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background-color: #27ae60;
+          color: white;
+          border-color: #27ae60;
+          font-weight: bold;
+        }
+        @media (max-width: 600px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+          }
+        }
+      `}</style>
     </Box>
   );
+};
+
+const styles = {
+  paginationContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
+    mt: 2,
+    gap: 1,
+  },
+  recordCount: {
+    color: '#1a2526',
+    fontSize: 'clamp(0.8rem, 3vw, 0.9rem)',
+    mb: 1,
+  },
 };
 
 export default PostalReceive;

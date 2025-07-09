@@ -1,106 +1,108 @@
-import axios from 'axios';
+import axios from "axios";
 import {
-  fetchCategoryCardsRequest,
-  fetchCategoryCardsSuccess,
-  fetchCategoryCardsFailed,
-  addOrUpdateCategoryCardSuccess,
-  getCategoryCardDetailsSuccess,
-  deleteCategoryCardSuccess,
-  categoryCardOperationFailed,
-  clearError 
-} from './categorySlice.js';
+  getRequest,
+  getSuccess,
+  getError,
+  stuffDone,
+  clearError,
+} from "./categorySlice";
 
-const BASE_URL = process.env.REACT_APP_BASE_URL;
+const api = axios.create({
+  baseURL: process.env.REACT_APP_BASE_URL || "http://localhost:5000",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-// GET ALL CATEGORYCARDS
-// categoryCardHandle.js
-export const getAllCategoryCards = (adminID) => async (dispatch) => {
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const fetchAllCategories = (adminID) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError("Admin ID is required"));
+    console.error("fetchAllCategories: No adminID provided");
+    return;
+  }
+  dispatch(getRequest());
+  const url = `/categories/${adminID}`;
+  console.log("Request URL:", url, "with adminID:", adminID);
   try {
-    dispatch(fetchCategoryCardsRequest());
-    const { data } = await axios.get(`${BASE_URL}/categoryCards?adminID=${adminID}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      }
-    });
-    dispatch(fetchCategoryCardsSuccess(data));
+    const response = await api.get(url);
+    console.log("Full fetch categories response:", JSON.stringify(response.data, null, 2));
+    const categories = Array.isArray(response.data.data) ? response.data.data : [];
+    console.log("Dispatched categories:", JSON.stringify(categories, null, 2));
+    dispatch(getSuccess(categories));
   } catch (error) {
-    const message = error.response?.data?.message || error.message;
-    dispatch(fetchCategoryCardsFailed(message));
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error("Error fetching categories:", errorMessage, JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
   }
 };
 
-// GET SINGLE CATEGORYCARD DETAILS
-export const getCategoryCardDetails = (id) => async (dispatch) => {
-  dispatch(fetchCategoryCardsRequest());
+export const createCategory = (data, adminID) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError("Admin ID is required"));
+    return;
+  }
+  if (!data.name || !data.description) {
+    dispatch(getError("All required fields must be filled"));
+    return;
+  }
+  dispatch(getRequest());
   try {
-    const { data } = await axios.get(`${BASE_URL}/categoryCards/${id}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-    });
-    dispatch(getCategoryCardDetailsSuccess(data));
+    const payload = { name: data.name, description: data.description, adminID };
+    console.log("Sending POST /category:", JSON.stringify(payload, null, 2));
+    await api.post("/category", payload);
+    dispatch(stuffDone());
+    dispatch(fetchAllCategories(adminID)); // Refresh the list
+    console.log("Triggered fetchAllCategories after create");
   } catch (error) {
-    const message = error.response?.data?.message || error.message;
-    dispatch(categoryCardOperationFailed(message));
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error("Error response from server (add):", JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
   }
 };
 
-// CREATE CATEGORYCARD
-export const createCategoryCard = (categoryCardData) => async (dispatch) => {
+export const updateCategory = ({ id, category, adminID }) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError("Admin ID is required"));
+    return;
+  }
+  dispatch(getRequest());
   try {
-    dispatch(fetchCategoryCardsRequest());
-    const { data } = await axios.post(`${BASE_URL}/categoryCards`, categoryCardData, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      }
-    });
-    dispatch(addOrUpdateCategoryCardSuccess(data));
-    return Promise.resolve();
+    const payload = { ...category, adminID };
+    console.log("Sending PUT /category:", JSON.stringify(payload, null, 2));
+    await api.put(`/category/${id}`, payload);
+    dispatch(stuffDone());
+    dispatch(fetchAllCategories(adminID));
   } catch (error) {
-    const message = error.response?.data?.message || error.message;
-    dispatch(categoryCardOperationFailed(message));
-    return Promise.reject(message);
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error("Error response from server (update):", JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
   }
 };
 
-// UPDATE CATEGORYCARD
-export const updateCategoryCard = (id, categoryCardData) => async (dispatch) => {
+export const deleteCategory = (id, adminID) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError("Admin ID is required"));
+    return;
+  }
+  dispatch(getRequest());
   try {
-    dispatch(fetchCategoryCardsRequest());
-    const { data } = await axios.put(`${BASE_URL}/categoryCards/${id}`, categoryCardData, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      }
-    });
-    dispatch(addOrUpdateCategoryCardSuccess(data));
-    return Promise.resolve();
+    console.log("Sending DELETE /category:", id, "with adminID:", adminID);
+    await api.delete(`/category/${id}?adminID=${adminID}`);
+    dispatch(stuffDone());
+    dispatch(fetchAllCategories(adminID));
   } catch (error) {
-    const message = error.response?.data?.message || error.message;
-    dispatch(categoryCardOperationFailed(message));
-    return Promise.reject(message);
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error("Error response from server (delete):", JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
   }
 };
 
-// DELETE CATEGORYCARD
-export const deleteCategoryCard = (id, adminID) => async (dispatch) => {
-  try {
-    dispatch(fetchCategoryCardsRequest());
-    await axios.delete(`${BASE_URL}/categoryCards/${id}`, {
-      data: { adminID },
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      }
-    });
-    dispatch(deleteCategoryCardSuccess(id));
-    return Promise.resolve();
-  } catch (error) {
-    const message = error.response?.data?.message || error.message;
-    dispatch(categoryCardOperationFailed(message));
-    return Promise.reject(message);
-  }
-};
-
-// CLEAR ERROR
-export const clearCategoryCardErrorAction = () => (dispatch) => {
-  dispatch(clearError());
-};
+export const clearCategoryError = () => clearError();

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box, Typography, TextField, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, IconButton, Snackbar, Alert, Grid, Card, CardContent, Dialog, DialogTitle,
-  DialogContent, DialogActions, MenuItem, Select, InputLabel, FormControl
+  Paper, IconButton, Snackbar, Alert, Grid, Card, CardContent, MenuItem, Select, InputLabel, FormControl
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
+import ReactPaginate from 'react-paginate';
 import {
   getAllExamGroups,
   createExamGroup,
@@ -14,6 +15,94 @@ import {
   deleteExamGroup,
   clearExamGroupError,
 } from '../../../redux/examRelated/exam-group-actions';
+
+// Styled Components
+const Container = styled(Box)`
+  padding: 16px;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  @media (min-width: 960px) {
+    padding: 32px;
+  }
+`;
+
+const Heading = styled(Typography)`
+  text-align: center;
+  font-weight: 700;
+  color: #1a2526;
+  margin-bottom: 32px;
+  font-size: 1.5rem;
+  @media (min-width: 960px) {
+    font-size: 2.125rem;
+  }
+`;
+
+const FormCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #d3e0ff;
+`;
+
+const TableCard = styled(Card)`
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+`;
+
+const SubHeading = styled(Typography)`
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #1a2526;
+`;
+
+const FormContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const AddUpdateButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #2e7d32;
+  color: white;
+  &:hover {
+    background-color: #1b5e20;
+  }
+`;
+
+const AddExamButton = styled(Button)`
+  border-radius: 20px;
+  text-transform: none;
+  background-color: #1976d2;
+  color: white;
+  &:hover {
+    background-color: #115293;
+  }
+`;
+
+const StyledTableContainer = styled(TableContainer)`
+  box-shadow: none;
+  background-color: #fff;
+`;
+
+const StyledTableRow = styled(TableRow)`
+  &:nth-of-type(odd) {
+    background-color: #f9f9f9;
+  }
+  &:hover {
+    background-color: #e0f7fa;
+  }
+`;
+
+const PaginationContainer = styled(Box)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  gap: 10px;
+`;
 
 const examTypes = [
   'General Purpose (Pass/Fail)',
@@ -34,7 +123,16 @@ const GroupExam = () => {
   const [formData, setFormData] = useState({ name: '', type: '', description: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [isTypeSelectOpen, setIsTypeSelectOpen] = useState(false);
+
+  // Refs for form fields and button
+  const nameRef = useRef(null);
+  const typeRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const submitButtonRef = useRef(null);
 
   useEffect(() => {
     if (adminID) {
@@ -71,6 +169,7 @@ const GroupExam = () => {
           setFormData({ name: '', type: '', description: '' });
           setIsEditing(false);
           setEditId(null);
+          nameRef.current.focus(); // Return focus to Name field after submit
         })
         .catch((err) => {
           setSnack({ open: true, message: err.message || 'Failed to update exam group', severity: 'error' });
@@ -80,6 +179,7 @@ const GroupExam = () => {
         .then(() => {
           setSnack({ open: true, message: 'Exam group added successfully', severity: 'success' });
           setFormData({ name: '', type: '', description: '' });
+          nameRef.current.focus(); // Return focus to Name field after submit
         })
         .catch((err) => {
           setSnack({ open: true, message: err.message || 'Failed to add exam group', severity: 'error' });
@@ -87,10 +187,29 @@ const GroupExam = () => {
     }
   };
 
+  const handleKeyDown = (e, nextRef) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent form submission or new line in multiline TextField
+      if (nextRef && nextRef.current) {
+        if (nextRef === typeRef) {
+          // For Select, focus and open the dropdown
+          setIsTypeSelectOpen(true);
+          typeRef.current.focus();
+        } else {
+          nextRef.current.focus();
+        }
+      } else {
+        // If on the last field (submit button), trigger submit
+        handleSubmit();
+      }
+    }
+  };
+
   const handleEdit = (group) => {
     setFormData({ name: group.name, type: group.type, description: group.description });
     setIsEditing(true);
     setEditId(group._id);
+    nameRef.current.focus(); // Focus Name field when starting edit
   };
 
   const handleDelete = (id) => {
@@ -113,99 +232,114 @@ const GroupExam = () => {
     navigate('/add-exam');
   };
 
-  return (
-    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: '#f4f6f8', minHeight: '100vh' }}>
-      <Typography
-        variant="h4"
-        sx={{
-          textAlign: 'center',
-          fontWeight: 700,
-          color: '#1a2526',
-          mb: 4,
-          fontSize: { xs: '1.5rem', md: '2.125rem' },
-        }}
-      >
-        Exam Group Management
-      </Typography>
+  const pageCount = Math.ceil(examGroupsList.length / itemsPerPage);
+  const offset = currentPage * itemsPerPage;
+  const currentPageData = examGroupsList.slice(offset, offset + itemsPerPage);
 
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(0);
+  };
+
+  return (
+    <Container>
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3000}
+        onClose={() => setSnack({ ...snack, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
+          {snack.message}
+        </Alert>
+      </Snackbar>
+      <Heading variant="h4">Exam Group Management</Heading>
       <Grid container spacing={3}>
         {/* Add/Edit Exam Group Section */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', bgcolor: '#d3e0ff' }}>
+          <FormCard>
             <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526', mb: 2 }}>
-                {isEditing ? 'Edit Exam Group' : 'Add Exam Group'}
-              </Typography>
-              <TextField
-                fullWidth
-                label="Name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                variant="outlined"
-                size="small"
-                sx={{ mb: 2 }}
-                required
-              />
-              <FormControl fullWidth sx={{ mb: 2 }} size="small">
-                <InputLabel>Exam Type</InputLabel>
-                <Select
-                  name="type"
-                  value={formData.type}
+              <SubHeading variant="h6">{isEditing ? 'Edit Exam Group' : 'Add Exam Group'}</SubHeading>
+              <FormContainer>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
-                  label="Exam Type"
+                  onKeyDown={(e) => handleKeyDown(e, typeRef)}
+                  variant="outlined"
+                  size="small"
                   required
+                  inputProps={{ 'aria-label': 'Exam Group Name' }}
+                  inputRef={nameRef}
+                />
+                <FormControl fullWidth size="small">
+                  <InputLabel id="exam-type-label">Exam Type</InputLabel>
+                  <Select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    onKeyDown={(e) => handleKeyDown(e, descriptionRef)}
+                    open={isTypeSelectOpen}
+                    onOpen={() => setIsTypeSelectOpen(true)}
+                    onClose={() => setIsTypeSelectOpen(false)}
+                    label="Exam Type"
+                    labelId="exam-type-label"
+                    required
+                    aria-label="Exam Type"
+                    inputRef={typeRef}
+                  >
+                    <MenuItem value="">Select</MenuItem>
+                    {examTypes.map((type, index) => (
+                      <MenuItem key={index} value={type}>{type}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  onKeyDown={(e) => handleKeyDown(e, submitButtonRef)}
+                  variant="outlined"
+                  size="small"
+                  multiline
+                  rows={3}
+                  inputProps={{ 'aria-label': 'Exam Group Description' }}
+                  inputRef={descriptionRef}
+                />
+                <AddUpdateButton
+                  variant="contained"
+                  onClick={handleSubmit}
+                  startIcon={<AddIcon />}
+                  aria-label={isEditing ? 'Update Exam Group' : 'Add Exam Group'}
+                  ref={submitButtonRef}
                 >
-                  <MenuItem value="">Select</MenuItem>
-                  {examTypes.map((type, index) => (
-                    <MenuItem key={index} value={type}>{type}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                variant="outlined"
-                size="small"
-                multiline
-                rows={3}
-                sx={{ mb: 2 }}
-              />
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleSubmit}
-                sx={{ borderRadius: '20px', textTransform: 'none' }}
-                startIcon={<AddIcon />}
-              >
-                {isEditing ? 'Update' : 'Add'} Exam Group
-              </Button>
+                  {isEditing ? 'Update' : 'Add'} Exam Group
+                </AddUpdateButton>
+              </FormContainer>
             </CardContent>
-          </Card>
+          </FormCard>
         </Grid>
 
         {/* Exam Group List Section */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ p: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+          <TableCard>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a2526' }}>
-                  Exam Group List
-                </Typography>
-                <Button
+                <SubHeading variant="h6">Exam Group List</SubHeading>
+                <AddExamButton
                   variant="contained"
-                  color="primary"
                   onClick={handleNavigateToAddExam}
-                  sx={{ borderRadius: '20px', textTransform: 'none' }}
                   startIcon={<AddIcon />}
+                  aria-label="Add Examination Name"
                 >
                   Add Examination Name
-                </Button>
+                </AddExamButton>
               </Box>
-              <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
+              <StyledTableContainer component={Paper}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#1a2526' }}>
@@ -229,25 +363,19 @@ const GroupExam = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={5} sx={{ textAlign: 'center' }}>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center', color: '#1a2526' }}>
                           Loading...
                         </TableCell>
                       </TableRow>
-                    ) : examGroupsList.length === 0 ? (
+                    ) : currentPageData.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} sx={{ textAlign: 'center', p: 4, color: '#666' }}>
                           No exam groups found
                         </TableCell>
                       </TableRow>
                     ) : (
-                      examGroupsList.map((group, idx) => (
-                        <TableRow
-                          key={group._id}
-                          sx={{
-                            bgcolor: idx % 2 ? '#fff' : '#f9f9f9',
-                            '&:hover': { bgcolor: '#e0f7fa' },
-                          }}
-                        >
+                      currentPageData.map((group, idx) => (
+                        <StyledTableRow key={group._id}>
                           <TableCell sx={{ p: { xs: 1, md: 2 }, fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
                             {group.name}
                           </TableCell>
@@ -264,43 +392,129 @@ const GroupExam = () => {
                             <IconButton
                               onClick={() => handleEdit(group)}
                               sx={{ color: '#1976d2', p: { xs: 0.5, md: 1 } }}
-                              title="Edit"
+                              aria-label="Edit Exam Group"
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
                             <IconButton
                               onClick={() => handleDelete(group._id)}
                               sx={{ color: '#d32f2f', p: { xs: 0.5, md: 1 } }}
-                              title="Delete"
+                              aria-label="Delete Exam Group"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </TableCell>
-                        </TableRow>
+                        </StyledTableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
-              </TableContainer>
-              <Typography sx={{ mt: 2, color: '#1a2526' }}>
-                Records: {examGroupsList.length} of {examGroupsList.length}
-              </Typography>
+              </StyledTableContainer>
+              <PaginationContainer>
+                <Typography sx={{ mt: 2, color: '#1a2526', textAlign: 'center' }}>
+                  Showing {currentPageData.length} of {examGroupsList.length} records
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: '#1a2526' }}>Items per page</Typography>
+                  <FormControl variant="outlined" size="small" sx={{ minWidth: 80 }}>
+                    <InputLabel id="items-per-page-label">Items</InputLabel>
+                    <Select
+                      value={itemsPerPage}
+                      onChange={handleItemsPerPageChange}
+                      label="Items"
+                      labelId="items-per-page-label"
+                      aria-label="Items per page"
+                    >
+                      {[5, 10, 20, 30].map((num) => (
+                        <MenuItem key={num} value={num}>
+                          {num}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+                <ReactPaginate
+                  previousLabel={'←'}
+                  nextLabel={'→'}
+                  pageCount={pageCount}
+                  onPageChange={({ selected }) => {
+                    setCurrentPage(selected);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  containerClassName={'pagination'}
+                  activeClassName={'active'}
+                  pageClassName={'page'}
+                  pageLinkClassName={'page-link'}
+                  previousClassName={'page'}
+                  nextClassName={'page'}
+                  breakLabel={'...'}
+                />
+              </PaginationContainer>
             </CardContent>
-          </Card>
+          </TableCard>
         </Grid>
       </Grid>
-
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={() => setSnack({ ...snack, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setSnack({ ...snack, open: false })} severity={snack.severity} sx={{ width: '100%' }}>
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      <style jsx global>{`
+        .pagination {
+          display: flex;
+          justify-content: center;
+          list-style: none;
+          padding: 0;
+          margin: 20px 0;
+          flex-wrap: wrap;
+        }
+        .page {
+          margin: 0 3px;
+        }
+        .page-link {
+          padding: 6px 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          cursor: pointer;
+          background-color: #f9f9f9;
+          color: #1a2526;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          font-size: 14px;
+          min-width: 44px;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .page-link:hover {
+          background-color: #e0e0e0;
+        }
+        .active .page-link {
+          background: #4caf50;
+          color: white;
+          border-color: #4caf50;
+          font-weight: bold;
+        }
+        @media (max-width: 600px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+        @media (max-width: 900px) {
+          .pagination {
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+          }
+          .page-link {
+            padding: 5px 8px;
+            font-size: 12px;
+          }
+        }
+      `}</style>
+    </Container>
   );
 };
 

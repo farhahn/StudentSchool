@@ -4,22 +4,22 @@ const categoryCardSchema = new mongoose.Schema({
   categoryCard: {
     type: String,
     required: true,
-    maxlength: 100,
-    trim: true
+    trim: true,
   },
   description: {
     type: String,
     trim: true,
-    maxlength: 500
+    default: '',
   },
-  createdBy: {
+  adminID: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin',
-    required: true
-  }
-}, {
-  timestamps: true
+    required: true,
+    ref: 'User',
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
-categoryCardSchema.index({ categoryCard: 1, createdBy: 1 }, { unique: true });
 
 module.exports = mongoose.model('CategoryCard', categoryCardSchema);

@@ -27,7 +27,7 @@ import studentsReducer from './StudentAddmissionDetail/studentAddmissionSlice.js
 import admissionFormReducer from './StudentAddmissionDetail/studentAddmissionSlice';
 import studentSearchReducer from './StudentAddmissionDetail/studentSearchSlice.js';
 import bulkDeleteReducer from './StudentAddmissionDetail/bulkDeleteSlice.js';
-import categoryReducer from './StudentAddmissionDetail/categorySlice.js';
+import categoryReducer from './categoryRelated/categorySlice.js';
 import houseReducer from './StudentAddmissionDetail/houseSlice.js';
 import reasonReducer from './StudentAddmissionDetail/reasonSlice.js';
 import disabledStudentReducer from './StudentAddmissionDetail/disabledStudentSlice.js';
@@ -38,7 +38,7 @@ import discountReducer from './feeRelated/discountSlice.js';
 import reminderReducer from './feeRelated/reminderSlice.js';
 import storeSlice from './storeItemRelated/storeSlice.js';
 import supplierSlice from './supplierRelated/supplierSlice.js';
-import categoryCardSlice from './categoryRelated/categorySlice.js';
+import categoryCardReducer from './categoryRelated/categoryCardSlice.js';
 import stockItemReducer from './itemStockRelated/itemStockSlice.js';
 import itemReducer from './itemRelated/itemSlice';
 import examGroupReducer from './examRelated/exam-group-slice.js';
@@ -105,7 +105,7 @@ const store = configureStore({
             reminders: reminderReducer,
              store: storeSlice,
                 supplier:supplierSlice,
-               categoryCard: categoryCardSlice,
+               categoryCard: categoryCardReducer,
                item: itemReducer,
                stockItem: stockItemReducer,
                 // issueitemstock: issueItemStockReducer  ,
