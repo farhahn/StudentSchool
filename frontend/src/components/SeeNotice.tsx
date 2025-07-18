@@ -28,16 +28,25 @@ const StyledCard = styled(Card)(({ theme }) => ({
 const SeeNotice = () => {
     const dispatch = useDispatch();
     const theme = useTheme();
-    const { currentUser, currentRole } = useSelector(state => state.user);
+    const { currentUser, currentRole, loading: userLoading } = useSelector(state => state.user);
     const { noticesList, loading, error, response } = useSelector((state) => state.notice);
 
     useEffect(() => {
+        if (!currentUser) return; // Guard clause
         if (currentRole === "Admin") {
             dispatch(getAllNotices(currentUser._id, "Notice"));
         } else {
-            dispatch(getAllNotices(currentUser.school._id, "Notice"));
+            dispatch(getAllNotices(currentUser.school?._id, "Notice"));
         }
     }, [dispatch, currentRole, currentUser]);
+
+    if (userLoading || !currentUser) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     const noticeColumns = [
         { id: 'title', label: 'Title', minWidth: 170, align: 'left' },
@@ -45,16 +54,19 @@ const SeeNotice = () => {
         { id: 'date', label: 'Date', minWidth: 120, align: 'center' },
     ];
 
-    const noticeRows = noticesList?.map((notice) => ({
-        title: notice.title,
-        details: notice.details,
-        date: new Date(notice.date).toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        }),
-        id: notice._id,
-    }));
+    const noticeRows = noticesList?.map((notice) => {
+        if (!notice || !notice._id) return null;
+        return {
+            title: notice.title,
+            details: notice.details,
+            date: new Date(notice.date).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            }),
+            id: notice._id,
+        };
+    }).filter(Boolean);
 
     return (
         <Container maxWidth="xl" sx={{ py: 6 }}>

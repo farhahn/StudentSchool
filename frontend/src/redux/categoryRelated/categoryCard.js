@@ -1,104 +1,106 @@
-import { createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-import {
-  getRequest,
-  getSuccess,
-  getError,
-  stuffDone,
-  clearCategoryCardError,
-} from './categoryCardSlice';
+// // frontend/src/CategoryCardSlice.js
+// import axios from 'axios';
+// import {
+//   getRequest,
+//   getSuccess,
+//   getError,
+//   stuffDone,
+//   clearError,
+// } from './categoryCardSlice';
 
-const api = axios.create({
-  baseURL: 'http://localhost:5000', // Ensure /api is included
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// const api = axios.create({
+//   baseURL: process.env.REACT_APP_BASE_URL || 'http://localhost:5000',
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+// });
 
-export const getAllCategoryCards = createAsyncThunk(
-  'categoryCard/getAllCategoryCards',
-  async (adminID, { dispatch }) => {
-    dispatch(getRequest());
-    try {
-      const response = await api.get(`/category-cards/${adminID}`);
-      dispatch(getSuccess(response.data.data));
-      return response.data.data;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      dispatch(getError(errorMessage));
-      throw error;
-    }
-  }
-);
+// api.interceptors.request.use((config) => {
+//   const token = localStorage.getItem('token');
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
 
-// Other thunks remain the same
-export const createCategoryCard = createAsyncThunk(
-  'categoryCard/createCategoryCard',
-  async (categoryCardData, { dispatch }) => {
-    dispatch(getRequest());
-    try {
-      const response = await api.post('/category-card', categoryCardData);
-      dispatch(stuffDone());
-      await dispatch(getAllCategoryCards(categoryCardData.adminID)).unwrap();
-      return response.data;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      dispatch(getError(errorMessage));
-      throw error;
-    }
-  }
-);
+// export const getAllCategoryCards = (adminID) => async (dispatch) => {
+//   if (!adminID) {
+//     dispatch(getError('Admin ID is required'));
+//     return;
+//   }
+//   dispatch(getRequest());
+//   const url = `/category-cards/${adminID}`;
+//   console.log('Request URL:', url, 'with adminID:', adminID);
+//   try {
+//     const response = await api.get(url);
+//     console.log('Fetch category cards response:', response.data);
+//     dispatch(getSuccess(response.data.data || []));
+//   } catch (error) {
+//     const errorMessage = error.response?.data?.message || error.message;
+//     console.error('Error fetching category cards:', errorMessage);
+//     dispatch(getError(errorMessage));
+//   }
+// };
 
-export const updateCategoryCard = createAsyncThunk(
-  'categoryCard/updateCategoryCard',
-  async ({ id, categoryCardData }, { dispatch }) => {
-    dispatch(getRequest());
-    try {
-      const response = await api.put(`/category-card/${id}`, categoryCardData);
-      dispatch(stuffDone());
-      await dispatch(getAllCategoryCards(categoryCardData.adminID)).unwrap();
-      return response.data;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      dispatch(getError(errorMessage));
-      throw error;
-    }
-  }
-);
+// export const createCategoryCard = (data, adminID) => async (dispatch, getState) => {
+//   if (!adminID) {
+//     dispatch(getError('Admin ID is required'));
+//     return;
+//   }
+//   if (!data.category || !data.description) {
+//     dispatch(getError('Category name and description are required'));
+//     return;
+//   }
+//   dispatch(getRequest());
+//   try {
+//     const payload = { ...data, adminID };
+//     console.log('Sending POST /category-card:', payload);
+//     const response = await api.post('/category-card', payload);
+//     const currentCategoryCards = getState().categoryCard.categoryCardsList;
+//     dispatch(getSuccess([...currentCategoryCards, response.data.data]));
+//     dispatch(stuffDone());
+//   } catch (error) {
+//     const errorMessage = error.response?.data?.message || error.message;
+//     console.error('Error response from server (add):', JSON.stringify(error.response?.data, null, 2));
+//     dispatch(getError(errorMessage));
+//   }
+// };
 
-export const deleteCategoryCard = createAsyncThunk(
-  'categoryCard/deleteCategoryCard',
-  async ({ id, adminID }, { dispatch }) => {
-    dispatch(getRequest());
-    try {
-      await api.delete(`/category-card/${id}`, { data: { adminID } });
-      dispatch(stuffDone());
-      await dispatch(getAllCategoryCards(adminID)).unwrap();
-      return { id };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      dispatch(getError(errorMessage));
-      throw error;
-    }
-  }
-);
+// export const updateCategoryCard = ({ id, categoryCard, adminID }) => async (dispatch) => {
+//   if (!adminID) {
+//     dispatch(getError('Admin ID is required'));
+//     return;
+//   }
+//   dispatch(getRequest());
+//   try {
+//     const payload = { ...categoryCard, adminID };
+//     console.log('Sending PUT /category-card:', payload);
+//     await api.put(`/category-card/${id}`, payload);
+//     dispatch(stuffDone());
+//     dispatch(getAllCategoryCards(adminID));
+//   } catch (error) {
+//     const errorMessage = error.response?.data?.message || error.message;
+//     console.error('Error response from server (update):', JSON.stringify(error.response?.data, null, 2));
+//     dispatch(getError(errorMessage));
+//   }
+// };
 
-export const searchCategoryCards = createAsyncThunk(
-  'categoryCard/searchCategoryCards',
-  async ({ adminID, searchQuery }, { dispatch }) => {
-    dispatch(getRequest());
-    try {
-      const response = await api.get(`/category-cards/search/${adminID}`, {
-        params: { searchQuery },
-      });
-      dispatch(getSuccess(response.data.data));
-      return response.data.data;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      dispatch(getError(errorMessage));
-      throw error;
-    }
-  }
-);
+// export const deleteCategoryCard = (id, adminID) => async (dispatch) => {
+//   if (!adminID) {
+//     dispatch(getError('Admin ID is required'));
+//     return;
+//   }
+//   dispatch(getRequest());
+//   try {
+//     console.log('Sending DELETE /category-card:', id, 'with adminID:', adminID);
+//     await api.delete(`/category-card/${id}?adminID=${adminID}`);
+//     dispatch(stuffDone());
+//     dispatch(getAllCategoryCards(adminID));
+//   } catch (error) {
+//     const errorMessage = error.response?.data?.message || error.message;
+//     console.error('Error response from server (delete):', JSON.stringify(error.response?.data, null, 2));
+//     dispatch(getError(errorMessage));
+//   }
+// };
 
-export { clearCategoryCardError };
+// export const clearCategoryCardError = () => clearError;

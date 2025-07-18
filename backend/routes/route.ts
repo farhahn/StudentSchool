@@ -23,7 +23,7 @@ const {
     removeStudentAttendanceBySubject,
     removeStudentAttendance } = require('../controllers/student_controller.ts');
 const { subjectCreate, classSubjects, deleteSubjectsByClass, getSubjectDetail, deleteSubject, freeSubjectList, allSubjects, deleteSubjects } = require('../controllers/subject-controller');
-// const { teacherRegister, teacherLogIn, getTeachers, getTeacherDetail,  deleteTeachersByClass,  updateTeacherSubject, teacherAttendance } = require('../controllers/teacher-controller.ts');
+const { teacherRegister, teacherLogIn, getTeachers, getTeacherDetail,  deleteTeachersByClass,  updateTeacherSubject, teacherAttendance } = require('../controllers/teacher-controller');
 const { 
     librarianRegister, 
     librarianLogIn, 
@@ -329,10 +329,10 @@ const uploadFields = upload.fields([
   { name: 'certificates', maxCount: 1 },
 ]);
 
-router.post('/teacher-form', uploadFields, handleMulterError, teacherController.addTeacherForm);
-router.get('/teachers', teacherController.getAllTeachers);
-router.put('/teachers/:id', uploadFields, handleMulterError, teacherController.updateTeacher);
-router.delete('/teachers/:id', teacherController.deleteTeacher);
+// router.post('/teacher-form', uploadFields, handleMulterError, teacherController.addTeacherForm);
+// router.get('/teachers', teacherController.getAllTeachers);
+// router.put('/teachers/:id', uploadFields, handleMulterError, teacherController.updateTeacher);
+// router.delete('/teachers/:id', teacherController.deleteTeacher);
 
 
 const feeCollectionController = require('../controllers/feeCollectionController');
@@ -565,19 +565,13 @@ router.delete('/suppliers/:id', deleteSupplier);         // Delete Supplier
 
 
 
-const {
-  getAllCategoryCards,
-  createCategoryCard,
-  updateCategoryCard,
-  deleteCategoryCard,
-  searchCategoryCards,
-} = require('../controllers/categoryCard');
 
-router.get('/category-cards/:adminID', getAllCategoryCards);
-router.get('/category-cards/search/:adminID', searchCategoryCards);
-router.post('/category-card', createCategoryCard);
-router.put('/category-card/:id', updateCategoryCard);
-router.delete('/category-card/:id', deleteCategoryCard);
+const categoryCardController = require('../controllers/categoryCard');
+
+router.get('/category-cards/:adminID', categoryCardController.getCategoryCards);
+router.post('/category-card', categoryCardController.addCategoryCard);
+router.put('/category-card/:id', categoryCardController.updateCategoryCard);
+router.delete('/category-card/:id', categoryCardController.deleteCategoryCard);
 
 
 
@@ -592,11 +586,9 @@ router.get('/Store/:id', getStoreById);
 
 const stockItemController = require('../controllers/stockItemController');
 
-
-
-router.get('/stock-items/:adminID',  stockItemController.getStockItems);
-router.post('/stock-item',  upload.single('document'), stockItemController.addStockItem);
-router.put('/stock-item/:id', upload.single('document'), stockItemController.updateStockItem);
+router.get('/stock-items/:adminID', stockItemController.getStockItems);
+router.post('/stock-item', stockItemController.addStockItem);
+router.put('/stock-item/:id', stockItemController.updateStockItem);
 router.delete('/stock-item/:id', stockItemController.deleteStockItem);
 
 
@@ -844,19 +836,19 @@ router.put('/RemoveStudentAtten/:id', removeStudentAttendance)
 
 // Teacher
 
-// router.post('/TeacherReg', teacherRegister);
-// router.post('/TeacherLogin', teacherLogIn)
+router.post('/TeacherReg', teacherRegister);
+router.post('/TeacherLogin', teacherLogIn)
 
-// router.get("/Teachers/:id", getTeachers)
-// router.get("/Teacher/:id", getTeacherDetail)
+router.get("/Teachers/:id", getTeachers)
+router.get("/Teacher/:id", getTeacherDetail)
 
-// // router.delete("/Teachers/:id", deleteTeachers)
-// router.delete("/TeachersClass/:id", deleteTeachersByClass)
-// // router.delete("/Teacher/:id", deleteTeacher)
+// router.delete("/Teachers/:id", deleteTeachers)
+router.delete("/TeachersClass/:id", deleteTeachersByClass)
+// router.delete("/Teacher/:id", deleteTeacher)
 
-// router.put("/TeacherSubject", updateTeacherSubject)
+router.put("/TeacherSubject", updateTeacherSubject)
 
-// router.post('/TeacherAttendance/:id', teacherAttendance)
+router.post('/TeacherAttendance/:id', teacherAttendance)
 
 // Notice
 

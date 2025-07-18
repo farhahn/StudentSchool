@@ -8,7 +8,7 @@ import {
 } from './IssueItemSlice';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000', // Fixed to include /api
+  baseURL: process.env.REACT_APP_API_URL , // Fixed to include /api
 });
 
 api.interceptors.request.use((config) => {
@@ -19,18 +19,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// In IssueItemAction.js
 export const getAllIssueItems = (adminID) => async (dispatch) => {
   if (!adminID) {
     dispatch(getError('Admin ID is required'));
     return;
   }
   dispatch(getRequest());
-  const url = `/issue-items/${adminID}`;
-  console.log('Request URL:', url, 'with adminID:', adminID);
   try {
-    const response = await api.get(url);
-    console.log('Fetch issue items response:', response.data);
-    dispatch(getSuccess(response.data.data || []));
+    // Mock response for testing
+    const mockResponse = { data: { data: [{ _id: '1', item: 'Test Item', category: 'Test Category', issueDate: '2025-07-12', issueTo: 'Maria Ford', issuedBy: 'Jason Charlton', quantity: 5, status: 'Issued' }] } };
+    console.log('Mock fetch issue items response:', mockResponse.data);
+    dispatch(getSuccess(mockResponse.data.data || []));
   } catch (error) {
     const errorMessage = error.response?.data?.message || error.message;
     console.error('Error fetching issue items:', errorMessage, error.response?.status);

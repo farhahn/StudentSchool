@@ -5,7 +5,8 @@ import {
     getFailed,
     getError,
     postDone,
-    doneSuccess
+    doneSuccess,
+     setLoading
 } from './teacherSlice';
 
 export const getAllTeachers = (id) => async (dispatch) => {
@@ -35,6 +36,25 @@ export const getTeacherDetails = (id) => async (dispatch) => {
         dispatch(getError(error));
     }
 }
+
+export const updateTeacherCredentials = ({ teacherId, adminID, formData }: { teacherId: string; adminID: string; formData: { username: string; password: string } }) => async (dispatch: AppDispatch) => {
+  try {
+    dispatch(setLoading());
+    const response = await fetch(`/teachers/${teacherId}/credentials`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, adminID }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      dispatch({ type: 'user/updateSuccess' });
+    } else {
+      dispatch({ type: 'user/failed', payload: data.message || 'Failed to update credentials' });
+    }
+  } catch (error) {
+    dispatch({ type: 'user/error', payload: error.message });
+  }
+};
 
 export const updateTeachSubject = (teacherId, teachSubject) => async (dispatch) => {
     dispatch(getRequest());

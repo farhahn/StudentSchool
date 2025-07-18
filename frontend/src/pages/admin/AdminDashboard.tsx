@@ -112,6 +112,8 @@ import DisableStudents from '../studentall/DisableStudents.tsx';
 import TeacherForm from '../teacherAll/TeacherForm.jsx';
 import ManageTeacher from '../teacherAll/ManageTeacher.jsx';
 import MarksheetDesigner from './Examination/MarksheetDesigner.tsx';
+import UpdateTeacherCredentials from '../teacherAll/UpdateTeacherCredentials.tsx';
+import AssignTeacherSubjectClass from '../teacherAll/AssignTeacherSubjectClass.js';
 
 
 
@@ -313,6 +315,8 @@ const AdminDashboard = () => {
 
                         <Route path="/Admin/teacherall/teacherform" element={<TeacherForm/>} />
                         <Route path="/Admin/teacherall/manageteacher" element={<ManageTeacher/>} />
+                        <Route path="/Admin/teacherall/UpdateTeacherCredentials" element={<UpdateTeacherCredentials/>} />
+                        <Route path="/Admin/teacherall/AssignTeacherSubjectClass" element={<AssignTeacherSubjectClass/>} />
 
 
 

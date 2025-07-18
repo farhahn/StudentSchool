@@ -1,7 +1,6 @@
-// redux/StockItemRelated/StockItemSlice.js
 import { createSlice } from '@reduxjs/toolkit';
 
-export const stockItemSlice = createSlice({
+const stockItemSlice = createSlice({
   name: 'stockItem',
   initialState: {
     stockItemsList: [],

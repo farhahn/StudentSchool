@@ -1,60 +1,134 @@
+// frontend/src/redux/categoryRelated/CategoryCardSlice.js
+import axios from 'axios';
 import { createSlice } from '@reduxjs/toolkit';
 
-const categoryCardSlice = createSlice({
+const api = axios.create({
+  baseURL: process.env.REACT_APP_BASE_URL || 'http://localhost:5000',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const getAllCategoryCards = (adminID) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError('Admin ID is required'));
+    return;
+  }
+  dispatch(getRequest());
+  const url = `/category-cards/${adminID}`;
+  console.log('Request URL:', url, 'with adminID:', adminID);
+  try {
+    const response = await api.get(url);
+    console.log('Fetch category cards response:', response.data);
+    dispatch(getSuccess(response.data.data || []));
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error('Error fetching category cards:', errorMessage);
+    dispatch(getError(errorMessage));
+  }
+};
+
+export const createCategoryCard = (data, adminID) => async (dispatch, getState) => {
+  if (!adminID) {
+    dispatch(getError('Admin ID is required'));
+    return;
+  }
+  if (!data.category || !data.description) {
+    dispatch(getError('Category name and description are required'));
+    return;
+  }
+  dispatch(getRequest());
+  try {
+    const payload = { ...data, adminID };
+    console.log('Sending POST /category-card:', payload);
+    const response = await api.post('/category-card', payload);
+    const currentCategoryCards = getState().categoryCard.categoryCardsList;
+    dispatch(getSuccess([...currentCategoryCards, response.data.data]));
+    dispatch(stuffDone());
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error('Error response from server (add):', JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
+  }
+};
+
+export const updateCategoryCard = ({ id, categoryCard, adminID }) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError('Admin ID is required'));
+    return;
+  }
+  dispatch(getRequest());
+  try {
+    const payload = { ...categoryCard, adminID };
+    console.log('Sending PUT /category-card:', payload);
+    await api.put(`/category-card/${id}`, payload);
+    dispatch(stuffDone());
+    dispatch(getAllCategoryCards(adminID));
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error('Error response from server (update):', JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
+  }
+};
+
+export const deleteCategoryCard = (id, adminID) => async (dispatch) => {
+  if (!adminID) {
+    dispatch(getError('Admin ID is required'));
+    return;
+  }
+  dispatch(getRequest());
+  try {
+    console.log('Sending DELETE /category-card:', id, 'with adminID:', adminID);
+    await api.delete(`/category-card/${id}?adminID=${adminID}`);
+    dispatch(stuffDone());
+    dispatch(getAllCategoryCards(adminID));
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || error.message;
+    console.error('Error response from server (delete):', JSON.stringify(error.response?.data, null, 2));
+    dispatch(getError(errorMessage));
+  }
+};
+
+export const clearCategoryCardError = () => (dispatch) => {
+  dispatch(clearError());
+};
+
+export const categoryCardSlice = createSlice({
   name: 'categoryCard',
   initialState: {
     categoryCardsList: [],
     loading: false,
     error: null,
-    status: 'idle',
   },
   reducers: {
     getRequest: (state) => {
       state.loading = true;
       state.error = null;
-      state.status = 'pending';
     },
     getSuccess: (state, action) => {
       state.categoryCardsList = action.payload;
       state.loading = false;
-      state.error = null;
-      state.status = 'success';
     },
     getError: (state, action) => {
-      state.loading = false;
       state.error = action.payload;
-      state.status = 'error';
+      state.loading = false;
     },
     stuffDone: (state) => {
       state.loading = false;
-      state.status = 'done';
     },
-    clearCategoryCardError: (state) => {
+    clearError: (state) => {
       state.error = null;
-    },
-    createCategoryCardLocally: (state, action) => {
-      state.categoryCardsList.unshift(action.payload);
-    },
-    updateCategoryCardLocally: (state, action) => {
-      const index = state.categoryCardsList.findIndex((card) => card._id === action.payload.id);
-      if (index !== -1) {
-        state.categoryCardsList[index] = action.payload.categoryCardData;
-      }
-    },
-    deleteCategoryCardLocally: (state, action) => {
-      state.categoryCardsList = state.categoryCardsList.filter((card) => card._id !== action.payload);
     },
   },
 });
 
-export const {
-  getRequest,
-  getSuccess,
-  getError,
-  stuffDone,
-  clearCategoryCardError,
-  createCategoryCardLocally,
-  updateCategoryCardLocally,
-  deleteCategoryCardLocally,
-} = categoryCardSlice.actions;
+export const { getRequest, getSuccess, getError, stuffDone, clearError } = categoryCardSlice.actions;
 export default categoryCardSlice.reducer;

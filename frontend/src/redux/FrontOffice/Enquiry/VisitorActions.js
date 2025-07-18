@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getRequest, getSuccess, getError, stuffDone, clearError } from './VisitorSlice';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: process.env.REACT_APP_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
